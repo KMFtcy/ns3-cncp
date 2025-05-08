@@ -23,6 +23,7 @@ build_lib(
     model/point-to-point-channel.cc
     model/point-to-point-net-device.cc
     model/ppp-header.cc
+    model/qbb-net-device.cc
     model/qbb-channel.cc
     model/rdma-queue-pair.cc
     model/pause-header.cc
@@ -34,6 +35,7 @@ build_lib(
     model/point-to-point-channel.h
     model/point-to-point-net-device.h
     model/ppp-header.h
+    model/qbb-net-device.h
     model/qbb-channel.h
     model/rdma-queue-pair.h
     model/pause-header.h
