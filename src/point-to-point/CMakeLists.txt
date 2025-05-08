@@ -23,6 +23,7 @@ build_lib(
     model/point-to-point-channel.cc
     model/point-to-point-net-device.cc
     model/ppp-header.cc
+    model/qbb-channel.cc
     model/pause-header.cc
     model/qbb-header.cc
     model/cn-header.cc
@@ -32,6 +33,7 @@ build_lib(
     model/point-to-point-channel.h
     model/point-to-point-net-device.h
     model/ppp-header.h
+    model/qbb-channel.h
     model/pause-header.h
     model/qbb-header.h
     model/cn-header.h
