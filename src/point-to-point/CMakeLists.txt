@@ -29,6 +29,7 @@ build_lib(
     model/pause-header.cc
     model/qbb-header.cc
     model/cn-header.cc
+    model/pint.cc
   HEADER_FILES
     ${mpi_headers}
     helper/point-to-point-helper.h
@@ -41,6 +42,7 @@ build_lib(
     model/pause-header.h
     model/qbb-header.h
     model/cn-header.h
+    model/pint.h
   LIBRARIES_TO_LINK ${libnetwork}
                     ${mpi_libraries}
   TEST_SOURCES test/point-to-point-test.cc
