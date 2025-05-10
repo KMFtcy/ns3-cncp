@@ -160,6 +160,12 @@ DataRate::operator*(double rhs) const
     return DataRate((uint64_t)(m_bps * rhs));
 }
 
+DataRate
+DataRate::operator/(const double& c) const
+{
+    return DataRate((uint64_t)(m_bps / c));
+}
+
 DataRate&
 DataRate::operator*=(double rhs)
 {

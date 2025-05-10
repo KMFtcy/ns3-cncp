@@ -149,6 +149,16 @@ class DataRate
     /**
      * @brief Scales the DataRate
      *
+     * Divides with double and is re-casted to an int
+     *
+     * @return DataRate object representing the product of this object with rhs
+     *
+     * @param c the double to divide to this datarate
+     */
+    DataRate operator/(const double& c) const;
+    /**
+     * @brief Scales the DataRate
+     *
      * Multiplies with double and is re-casted to an int
      *
      * @return DataRate object representing the product of this object with rhs
