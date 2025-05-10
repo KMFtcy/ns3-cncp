@@ -65,13 +65,15 @@ RdmaEgressQueue::GetTypeId(void)
 {
     static TypeId tid =
         TypeId("ns3::RdmaEgressQueue")
-            .SetParent<Object>();
+            .SetParent<Object>()
             .AddTraceSource("RdmaEnqueue",
                             "Enqueue a packet in the RdmaEgressQueue.",
-                            MakeTraceSourceAccessor(&RdmaEgressQueue::m_traceRdmaEnqueue))
+                            MakeTraceSourceAccessor(&RdmaEgressQueue::m_traceRdmaEnqueue),
+                            "ns3::Queue::RDMAEnqueueTracedCallback")
             .AddTraceSource("RdmaDequeue",
                             "Dequeue a packet in the RdmaEgressQueue.",
-                            MakeTraceSourceAccessor(&RdmaEgressQueue::m_traceRdmaDequeue));
+                            MakeTraceSourceAccessor(&RdmaEgressQueue::m_traceRdmaDequeue),
+                            "ns3::Queue::RDMADequeueTracedCallback");
     return tid;
 }
 
@@ -252,22 +254,27 @@ QbbNetDevice::GetTypeId(void)
                           "A queue to use as the transmit queue in the device.",
                           PointerValue(),
                           MakePointerAccessor(&QbbNetDevice::m_rdmaEQ),
-                          MakePointerChecker<Object>());
+                          MakePointerChecker<Object>())
             .AddTraceSource("QbbEnqueue",
                             "Enqueue a packet in the QbbNetDevice.",
-                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceEnqueue))
+                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceEnqueue),
+                            "ns3::Queue::QbbEnqueueTracedCallback")
             .AddTraceSource("QbbDequeue",
                             "Dequeue a packet in the QbbNetDevice.",
-                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceDequeue))
+                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceDequeue),
+                            "ns3::Queue::QbbDequeueTracedCallback")
             .AddTraceSource("QbbDrop",
                             "Drop a packet in the QbbNetDevice.",
-                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceDrop))
+                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceDrop),
+                            "ns3::Queue::QbbDropTracedCallback")
             .AddTraceSource("RdmaQpDequeue",
                             "A qp dequeue a packet.",
-                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceQpDequeue))
+                            MakeTraceSourceAccessor(&QbbNetDevice::m_traceQpDequeue),
+                            "ns3::Queue::RdmaQpDequeueTracedCallback")
             .AddTraceSource("QbbPfc",
                             "get a PFC packet. 0: resume, 1: pause",
-                            MakeTraceSourceAccessor(&QbbNetDevice::m_tracePfc));
+                            MakeTraceSourceAccessor(&QbbNetDevice::m_tracePfc),
+                            "ns3::Queue::QbbPfcTracedCallback");
 
     return tid;
 }
