@@ -482,6 +482,12 @@ class Buffer
     /**
      * @return a pointer to the start of the internal
      * byte buffer.
+     */
+    uint8_t* GetBuffer() const;
+
+    /**
+     * @return a pointer to the start of the internal
+     * byte buffer.
      *
      * The returned pointer points to an area of
      * memory which is ns3::Buffer::GetSize () bytes big.
