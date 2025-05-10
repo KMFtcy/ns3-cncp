@@ -13,6 +13,7 @@
 #include "packet.h"
 
 #include "ns3/callback.h"
+#include "ns3/custom-header.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/ipv6-address.h"
 #include "ns3/object.h"
@@ -166,6 +167,7 @@ class NetDevice : public Object
      * not true.
      */
     virtual Address GetBroadcast() const = 0;
+    virtual bool IsQbb(void) const;
 
     /**
      * @return value of m_isMulticast flag
@@ -356,6 +358,10 @@ class NetDevice : public Object
      * @return true if this interface supports a bridging mode, false otherwise.
      */
     virtual bool SupportsSendFrom() const = 0;
+
+    // Yuliang
+    // For switch
+    virtual bool SwitchSend(uint32_t qIndex, Ptr<Packet> packet, CustomHeader& ch);
 };
 
 } // namespace ns3
