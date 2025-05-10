@@ -90,7 +90,7 @@ BEgressQueue::Enqueue(Ptr<Packet> p, uint32_t qIndex)
     if (retval)
     {
         // m_traceEnqueue(p);
-        // m_traceBeqEnqueue(p, qIndex);
+        m_traceBeqEnqueue(p, qIndex);
 
         uint32_t size = p->GetSize();
         m_nBytes += size;
