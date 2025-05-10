@@ -139,6 +139,14 @@ class QbbNetDevice : public PointToPointNetDevice
     // Uniform random variable
     Ptr<UniformRandomVariable> m_uv;
 
+    // build for RDMA
+    DataRate GetDataRate(){
+      return m_bps;
+    }
+    bool IsQbb(){
+      return true;
+    }
+
   protected:
     // Ptr<Node> m_node;
 
