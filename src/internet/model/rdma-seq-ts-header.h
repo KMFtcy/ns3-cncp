@@ -6,8 +6,8 @@
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 
-#ifndef SEQ_TS_HEADER_H
-#define SEQ_TS_HEADER_H
+#ifndef RDMA_SEQ_TS_HEADER_H
+#define RDMA_SEQ_TS_HEADER_H
 
 #include "ns3/header.h"
 #include "ns3/nstime.h"
@@ -26,9 +26,9 @@ namespace ns3
  * simulation time upon creation.
  *
  * If you need space for an application data unit size field (e.g. for
- * stream-based protocols like TCP), use ns3::SeqTsSizeHeader.
+ * stream-based protocols like TCP), use ns3::RDMASeqTsSizeHeader.
  *
- * \sa ns3::SeqTsSizeHeader
+ * \sa ns3::RDMASeqTsSizeHeader
  */
 class RDMASeqTsHeader : public Header
 {
@@ -71,4 +71,4 @@ class RDMASeqTsHeader : public Header
 
 } // namespace ns3
 
-#endif /* SEQ_TS_HEADER_H */
+#endif /* RDMA_SEQ_TS_HEADER_H */
