@@ -122,7 +122,7 @@ QbbChannel::GetNDevices (void) const
 }
 
 Ptr<QbbNetDevice>
-QbbChannel::GetQbbDevice (uint32_t i) const
+QbbChannel::GetQbbDevice (std::size_t i) const
 {
   NS_LOG_FUNCTION_NOARGS ();
   NS_ASSERT (i < 2);
@@ -130,7 +130,7 @@ QbbChannel::GetQbbDevice (uint32_t i) const
 }
 
 Ptr<NetDevice>
-QbbChannel::GetDevice (uint32_t i) const
+QbbChannel::GetDevice (std::size_t i) const
 {
   NS_LOG_FUNCTION_NOARGS ();
   return GetQbbDevice (i);

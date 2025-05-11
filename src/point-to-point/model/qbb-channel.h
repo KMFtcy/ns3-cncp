@@ -84,14 +84,14 @@ public:
    * \param i Index number of the device requested
    * \returns Ptr to QbbNetDevice requested
    */
-  Ptr<QbbNetDevice> GetQbbDevice (uint32_t i) const;
+  Ptr<QbbNetDevice> GetQbbDevice (std::size_t i) const;
 
   /*
    * \brief Get NetDevice corresponding to index i on this channel
    * \param i Index number of the device requested
    * \returns Ptr to NetDevice requested
    */
-  virtual Ptr<NetDevice> GetDevice (uint32_t i) const;
+  Ptr<NetDevice> GetDevice (std::size_t i) const;
 
   /*
    * \brief Get the delay associated with this channel
