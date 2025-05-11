@@ -12,6 +12,7 @@
 #include "net-device.h"
 
 #include "ns3/callback.h"
+#include "ns3/net-device.h"
 #include "ns3/object.h"
 #include "ns3/ptr.h"
 
@@ -112,6 +113,12 @@ class Node : public Object
      *          of Application.
      */
     uint32_t AddApplication(Ptr<Application> application);
+    /**
+     * \param application Application to remove from this node.
+     *
+     * Remove this Application from this Node.
+     */
+    void DeleteApplication(Ptr<Application> application);
     /**
      * @brief Retrieve the index-th Application associated to this node.
      *

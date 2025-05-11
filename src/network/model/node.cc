@@ -161,6 +161,14 @@ Node::AddApplication(Ptr<Application> application)
     return index;
 }
 
+void Node::DeleteApplication (Ptr<Application> application){
+	for (auto it = m_applications.begin(); it != m_applications.end(); it++)
+		if (*it == application){
+			m_applications.erase(it);
+			break;
+		}
+}
+
 Ptr<Application>
 Node::GetApplication(uint32_t index) const
 {
@@ -382,4 +390,19 @@ Node::GetNodeType()
     return m_node_type;
 }
 
+void
+Node::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p)
+{
+    NS_ASSERT_MSG(
+        false,
+        "Calling NotifyDequeue() on a non-switch node or this function is not implemented");
+}
+
+bool
+Node::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader& ch)
+{
+    NS_ASSERT_MSG(false,
+                  "Calling SwitchReceiveFromDevice() on a non-switch node or this function is not "
+                  "implemented");
+}
 } // namespace ns3
