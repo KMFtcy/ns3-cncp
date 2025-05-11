@@ -1,7 +1,19 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
  * Copyright (c) 2009 INRIA
  *
- * SPDX-License-Identifier: GPL-2.0-only
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
@@ -11,64 +23,52 @@
 
 #include "ns3/header.h"
 #include "ns3/nstime.h"
+#include "ns3/int-header.h"
 
-namespace ns3
-{
+namespace ns3 {
 /**
- * @ingroup applications
- *
- * @brief Packet header to carry sequence number and timestamp
- *
- * The header is used as a payload in applications (typically UDP) to convey
- * a 32 bit sequence number followed by a 64 bit timestamp (12 bytes total).
- *
- * The timestamp is not set explicitly but automatically set to the
- * simulation time upon creation.
- *
- * If you need space for an application data unit size field (e.g. for
- * stream-based protocols like TCP), use ns3::RDMASeqTsSizeHeader.
- *
- * \sa ns3::RDMASeqTsSizeHeader
+ * \ingroup udpclientserver
+ * \class SeqTsHeader
+ * \brief Packet header for Udp client/server application
+ * The header is made of a 32bits sequence number followed by
+ * a 64bits time stamp.
  */
 class RDMASeqTsHeader : public Header
 {
-  public:
-    RDMASeqTsHeader();
+public:
+  RDMASeqTsHeader ();
 
-    /**
-     * @param seq the sequence number
-     */
-    void SetSeq(uint32_t seq);
-    /**
-     * @return the sequence number
-     */
-    uint32_t GetSeq() const;
-    /**
-     * @return the time stamp
-     */
-    Time GetTs() const;
+  /**
+   * \param seq the sequence number
+   */
+  void SetSeq (uint32_t seq);
+  /**
+   * \return the sequence number
+   */
+  uint32_t GetSeq (void) const;
+  /**
+   * \return the time stamp
+   */
+  Time GetTs (void) const;
 
-    void SetPG(uint16_t pg);
-    uint16_t GetPG() const;
+  void SetPG (uint16_t pg);
+  uint16_t GetPG () const;
 
-    /**
-     * @brief Get the type ID.
-     * @return the object TypeId
-     */
-    static TypeId GetTypeId();
+  static TypeId GetTypeId (void);
+  TypeId GetInstanceTypeId (void) const override;
+  void Print (std::ostream &os) const override;
+  uint32_t GetSerializedSize (void) const override;
+  static uint32_t GetHeaderSize(void);
+private:
+  void Serialize (Buffer::Iterator start) const override;
+  uint32_t Deserialize (Buffer::Iterator start) override;
 
-    TypeId GetInstanceTypeId() const override;
-    void Print(std::ostream& os) const override;
-    uint32_t GetSerializedSize() const override;
-    void Serialize(Buffer::Iterator start) const override;
-    uint32_t Deserialize(Buffer::Iterator start) override;
-
-  private:
-    uint32_t m_seq; //!< Sequence number
-    uint64_t m_ts;  //!< Timestamp
-    uint16_t m_pg;  //!< PG
+  uint32_t m_seq;
+  uint16_t m_pg;
+public:
+  IntHeader ih;
 };
 
 } // namespace ns3
 
-#endif /* RDMA_SEQ_TS_HEADER_H */
+#endif /* SEQ_TS_HEADER_H */
