@@ -94,6 +94,7 @@ void
 Node::Construct()
 {
     NS_LOG_FUNCTION(this);
+    m_node_type = 0;
     m_id = NodeList::Add(this);
 }
 
@@ -370,6 +371,15 @@ Node::NotifyDeviceAdded(Ptr<NetDevice> device)
     {
         (*i)(device);
     }
+}
+
+/*
+ * used for RDMA simulation
+ */
+uint32_t
+Node::GetNodeType()
+{
+    return m_node_type;
 }
 
 } // namespace ns3

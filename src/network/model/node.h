@@ -211,6 +211,21 @@ class Node : public Object
     void DoDispose() override;
     void DoInitialize() override;
 
+    /**
+     * used for RDMA simulation
+     */
+  public:
+    uint32_t GetNodeType();
+    virtual void SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p);
+    virtual bool SwitchReceiveFromDevice(Ptr<NetDevice> device,
+                                         Ptr<Packet> packet,
+                                         CustomHeader& ch);
+
+    /**
+     * used for RDMA simulation
+     */
+  protected:
+    uint32_t m_node_type;
   private:
     /**
      * @brief Notifies all the DeviceAdditionListener about the new device added.
