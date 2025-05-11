@@ -82,8 +82,8 @@ RdmaEgressQueue::RdmaEgressQueue()
     m_rrlast = 0;
     m_qlast = 0;
     m_ackQ = CreateObject<DropTailQueue<Packet>>();
-    m_ackQ->SetAttribute("MaxBytes",
-                         UintegerValue(0xffffffff)); // queue limit is on a higher level, not here
+    m_ackQ->SetAttribute("MaxSize",
+                         QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, 0xffffffff))); // queue limit is on a higher level, not here
 }
 
 Ptr<Packet>
