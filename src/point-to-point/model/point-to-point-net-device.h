@@ -195,67 +195,12 @@ class PointToPointNetDevice : public NetDevice
      */
     void DoMpiReceive(Ptr<Packet> p);
 
-  private:
     /**
      * @brief Dispose of the object
      */
     void DoDispose() override;
 
-    /**
-     * @returns the address of the remote device connected to this device
-     * through the point to point channel.
-     */
-    Address GetRemote() const;
-
-    /**
-     * Adds the necessary headers and trailers to a packet of data in order to
-     * respect the protocol implemented by the agent.
-     * @param p packet
-     * @param protocolNumber protocol number
-     */
-    void AddHeader(Ptr<Packet> p, uint16_t protocolNumber);
-
-    /**
-     * Removes, from a packet of data, all headers and trailers that
-     * relate to the protocol implemented by the agent
-     * @param p Packet whose headers need to be processed
-     * @param param An integer parameter that can be set by the function
-     * @return Returns true if the packet should be forwarded up the
-     * protocol stack.
-     */
-    bool ProcessHeader(Ptr<Packet> p, uint16_t& param);
-
-    /**
-     * Start Sending a Packet Down the Wire.
-     *
-     * The TransmitStart method is the method that is used internally in the
-     * PointToPointNetDevice to begin the process of sending a packet out on
-     * the channel.  The corresponding method is called on the channel to let
-     * it know that the physical device this class represents has virtually
-     * started sending signals.  An event is scheduled for the time at which
-     * the bits have been completely transmitted.
-     *
-     * @see PointToPointChannel::TransmitStart ()
-     * @see TransmitComplete()
-     * @param p a reference to the packet to send
-     * @returns true if success, false on failure
-     */
-    bool TransmitStart(Ptr<Packet> p);
-
-    /**
-     * Stop Sending a Packet Down the Wire and Begin the Interframe Gap.
-     *
-     * The TransmitComplete method is used internally to finish the process
-     * of sending a packet out on the channel.
-     */
-    void TransmitComplete();
-
-    /**
-     * @brief Make the link up and running
-     *
-     * It calls also the linkChange callback.
-     */
-    void NotifyLinkUp();
+    uint32_t m_ifIndex;                                  //!< Index of the interface
 
     /**
      * Enumeration of the states of the transmit machine of the net device.
@@ -272,107 +217,10 @@ class PointToPointNetDevice : public NetDevice
     TxMachineState m_txMachineState;
 
     /**
-     * The data rate that the Net Device uses to simulate packet transmission
-     * timing.
-     */
-    DataRate m_bps;
-
-    /**
      * The interframe gap that the Net Device uses to throttle packet
      * transmission
      */
     Time m_tInterframeGap;
-
-    /**
-     * The PointToPointChannel to which this PointToPointNetDevice has been
-     * attached.
-     */
-    Ptr<PointToPointChannel> m_channel;
-
-    /**
-     * The Queue which this PointToPointNetDevice uses as a packet source.
-     * Management of this Queue has been delegated to the PointToPointNetDevice
-     * and it has the responsibility for deletion.
-     * @see class DropTailQueue
-     */
-    Ptr<Queue<Packet>> m_queue;
-
-    /**
-     * Error model for receive packet events
-     */
-    Ptr<ErrorModel> m_receiveErrorModel;
-
-    /**
-     * The trace source fired when packets come into the "top" of the device
-     * at the L3/L2 transition, before being queued for transmission.
-     */
-    TracedCallback<Ptr<const Packet>> m_macTxTrace;
-
-    /**
-     * The trace source fired when packets coming into the "top" of the device
-     * at the L3/L2 transition are dropped before being queued for transmission.
-     */
-    TracedCallback<Ptr<const Packet>> m_macTxDropTrace;
-
-    /**
-     * The trace source fired for packets successfully received by the device
-     * immediately before being forwarded up to higher layers (at the L2/L3
-     * transition).  This is a promiscuous trace (which doesn't mean a lot here
-     * in the point-to-point device).
-     */
-    TracedCallback<Ptr<const Packet>> m_macPromiscRxTrace;
-
-    /**
-     * The trace source fired for packets successfully received by the device
-     * immediately before being forwarded up to higher layers (at the L2/L3
-     * transition).  This is a non-promiscuous trace (which doesn't mean a lot
-     * here in the point-to-point device).
-     */
-    TracedCallback<Ptr<const Packet>> m_macRxTrace;
-
-    /**
-     * The trace source fired for packets successfully received by the device
-     * but are dropped before being forwarded up to higher layers (at the L2/L3
-     * transition).
-     */
-    TracedCallback<Ptr<const Packet>> m_macRxDropTrace;
-
-    /**
-     * The trace source fired when a packet begins the transmission process on
-     * the medium.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyTxBeginTrace;
-
-    /**
-     * The trace source fired when a packet ends the transmission process on
-     * the medium.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyTxEndTrace;
-
-    /**
-     * The trace source fired when the phy layer drops a packet before it tries
-     * to transmit it.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyTxDropTrace;
-
-    /**
-     * The trace source fired when a packet begins the reception process from
-     * the medium -- when the simulated first bit(s) arrive.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyRxBeginTrace;
-
-    /**
-     * The trace source fired when a packet ends the reception process from
-     * the medium.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyRxEndTrace;
-
-    /**
-     * The trace source fired when the phy layer drops a packet it has received.
-     * This happens if the receiver is not enabled or the error model is active
-     * and indicates that the packet is corrupt.
-     */
-    TracedCallback<Ptr<const Packet>> m_phyRxDropTrace;
 
     /**
      * A trace source that emulates a non-promiscuous protocol sniffer connected
@@ -410,13 +258,169 @@ class PointToPointNetDevice : public NetDevice
      */
     TracedCallback<Ptr<const Packet>> m_promiscSnifferTrace;
 
+    /**
+     * The trace source fired when the phy layer drops a packet it has received.
+     * This happens if the receiver is not enabled or the error model is active
+     * and indicates that the packet is corrupt.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyRxDropTrace;
+
+    /**
+     * The trace source fired for packets successfully received by the device
+     * immediately before being forwarded up to higher layers (at the L2/L3
+     * transition).  This is a non-promiscuous trace (which doesn't mean a lot
+     * here in the point-to-point device).
+     */
+    TracedCallback<Ptr<const Packet>> m_macRxTrace;
+
+    /**
+     * The trace source fired when packets come into the "top" of the device
+     * at the L3/L2 transition, before being queued for transmission.
+     */
+    TracedCallback<Ptr<const Packet>> m_macTxTrace;
+
+    /**
+     * The trace source fired when the phy layer drops a packet before it tries
+     * to transmit it.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyTxDropTrace;
+
+    /**
+     * The trace source fired when a packet begins the transmission process on
+     * the medium.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyTxBeginTrace;
+
+    /**
+     * Removes, from a packet of data, all headers and trailers that
+     * relate to the protocol implemented by the agent
+     * @param p Packet whose headers need to be processed
+     * @param param An integer parameter that can be set by the function
+     * @return Returns true if the packet should be forwarded up the
+     * protocol stack.
+     */
+    bool ProcessHeader(Ptr<Packet> p, uint16_t& param);
+
+    /**
+     * Error model for receive packet events
+     */
+    Ptr<ErrorModel> m_receiveErrorModel;
+
+    /**
+     * Adds the necessary headers and trailers to a packet of data in order to
+     * respect the protocol implemented by the agent.
+     * @param p packet
+     * @param protocolNumber protocol number
+     */
+    void AddHeader(Ptr<Packet> p, uint16_t protocolNumber);
+
+    Ptr<Packet> m_currentPkt; //!< Current packet processed
+
+    /**
+     * The data rate that the Net Device uses to simulate packet transmission
+     * timing.
+     */
+    DataRate m_bps;
+
+    /**
+     * @brief Make the link up and running
+     *
+     * It calls also the linkChange callback.
+     */
+    void NotifyLinkUp();
+
+    bool m_linkUp;                                       //!< Identify if the link is up or not
+  private:
+
+    /**
+     * @returns the address of the remote device connected to this device
+     * through the point to point channel.
+     */
+    Address GetRemote() const;
+
+    /**
+     * Start Sending a Packet Down the Wire.
+     *
+     * The TransmitStart method is the method that is used internally in the
+     * PointToPointNetDevice to begin the process of sending a packet out on
+     * the channel.  The corresponding method is called on the channel to let
+     * it know that the physical device this class represents has virtually
+     * started sending signals.  An event is scheduled for the time at which
+     * the bits have been completely transmitted.
+     *
+     * @see PointToPointChannel::TransmitStart ()
+     * @see TransmitComplete()
+     * @param p a reference to the packet to send
+     * @returns true if success, false on failure
+     */
+    bool TransmitStart(Ptr<Packet> p);
+
+    /**
+     * Stop Sending a Packet Down the Wire and Begin the Interframe Gap.
+     *
+     * The TransmitComplete method is used internally to finish the process
+     * of sending a packet out on the channel.
+     */
+    void TransmitComplete();
+
+    /**
+     * The PointToPointChannel to which this PointToPointNetDevice has been
+     * attached.
+     */
+    Ptr<PointToPointChannel> m_channel;
+
+    /**
+     * The Queue which this PointToPointNetDevice uses as a packet source.
+     * Management of this Queue has been delegated to the PointToPointNetDevice
+     * and it has the responsibility for deletion.
+     * @see class DropTailQueue
+     */
+    Ptr<Queue<Packet>> m_queue;
+
+    /**
+     * The trace source fired when packets coming into the "top" of the device
+     * at the L3/L2 transition are dropped before being queued for transmission.
+     */
+    TracedCallback<Ptr<const Packet>> m_macTxDropTrace;
+
+    /**
+     * The trace source fired for packets successfully received by the device
+     * immediately before being forwarded up to higher layers (at the L2/L3
+     * transition).  This is a promiscuous trace (which doesn't mean a lot here
+     * in the point-to-point device).
+     */
+    TracedCallback<Ptr<const Packet>> m_macPromiscRxTrace;
+
+    /**
+     * The trace source fired for packets successfully received by the device
+     * but are dropped before being forwarded up to higher layers (at the L2/L3
+     * transition).
+     */
+    TracedCallback<Ptr<const Packet>> m_macRxDropTrace;
+
+    /**
+     * The trace source fired when a packet ends the transmission process on
+     * the medium.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyTxEndTrace;
+
+    /**
+     * The trace source fired when a packet begins the reception process from
+     * the medium -- when the simulated first bit(s) arrive.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyRxBeginTrace;
+
+    /**
+     * The trace source fired when a packet ends the reception process from
+     * the medium.
+     */
+    TracedCallback<Ptr<const Packet>> m_phyRxEndTrace;
+
     Ptr<Node> m_node;                                    //!< Node owning this NetDevice
     Mac48Address m_address;                              //!< Mac48Address of this NetDevice
     NetDevice::ReceiveCallback m_rxCallback;             //!< Receive callback
     NetDevice::PromiscReceiveCallback m_promiscCallback; //!< Receive callback
                                                          //   (promisc data)
-    uint32_t m_ifIndex;                                  //!< Index of the interface
-    bool m_linkUp;                                       //!< Identify if the link is up or not
     TracedCallback<> m_linkChangeCallbacks;              //!< Callback for the link change event
 
     static const uint16_t DEFAULT_MTU = 1500; //!< Default MTU
@@ -430,8 +434,6 @@ class PointToPointNetDevice : public NetDevice
      * Ethernet.
      */
     uint32_t m_mtu;
-
-    Ptr<Packet> m_currentPkt; //!< Current packet processed
 
     /**
      * @brief PPP to Ethernet protocol number mapping
