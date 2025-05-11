@@ -41,9 +41,10 @@ QbbChannel::GetTypeId (void)
                    TimeValue (Seconds (0)),
                    MakeTimeAccessor (&QbbChannel::m_delay),
                    MakeTimeChecker ())
-    // .AddTraceSource ("TxRxQbb",
-    //                  "Trace source indicating transmission of packet from the QbbChannel, used by the Animation interface.",
-    //                  MakeTraceSourceAccessor (&QbbChannel::m_txrxQbb))
+    .AddTraceSource ("TxRxQbb",
+                     "Trace source indicating transmission of packet from the QbbChannel, used by the Animation interface.",
+                     MakeTraceSourceAccessor (&QbbChannel::m_txrxQbb),
+                     "ns3::QbbChannel::TxRxQbbCallback")
   ;
   return tid;
 }
