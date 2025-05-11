@@ -314,10 +314,10 @@ QbbNetDevice::TransmitComplete(void)
 {
     NS_LOG_FUNCTION(this);
     // NS_ASSERT_MSG(m_txMachineState == BUSY, "Must be BUSY if transmitting");
-    // m_txMachineState = READY;
+    m_txMachineState = READY;
     // NS_ASSERT_MSG(m_currentPkt != 0, "QbbNetDevice::TransmitComplete(): m_currentPkt zero");
     // m_phyTxEndTrace(m_currentPkt);
-    // m_currentPkt = 0;
+    m_currentPkt = 0;
     DequeueAndTransmit();
 }
 
@@ -325,7 +325,7 @@ void
 QbbNetDevice::DequeueAndTransmit(void)
 {
     NS_LOG_FUNCTION(this);
-    if (!m_linkUp)
+    if (!IsLinkUp())
     {
         return; // if link is down, return
     }
@@ -334,7 +334,7 @@ QbbNetDevice::DequeueAndTransmit(void)
         return; // Quit if channel busy
     }
     Ptr<Packet> p;
-    if (m_node->GetNodeType() == 0)
+    if (GetNode()->GetNodeType() == 0)
     {
         int qIndex = m_rdmaEQ->GetNextQindex(m_paused);
         if (qIndex != -1024)
@@ -359,7 +359,7 @@ QbbNetDevice::DequeueAndTransmit(void)
         }
         else
         { // no packet to send
-            NS_LOG_INFO("PAUSE prohibits send at node " << m_node->GetId());
+            NS_LOG_INFO("PAUSE prohibits send at node " << GetNode()->GetId());
             Time t = Simulator::GetMaximumSimulationTime();
             for (uint32_t i = 0; i < m_rdmaEQ->GetFlowCount(); i++)
             {
@@ -383,7 +383,7 @@ QbbNetDevice::DequeueAndTransmit(void)
     else
     {                                     // switch, doesn't care about qcn, just send
         p = m_queue->DequeueRR(m_paused); // this is round-robin
-        if (p != 0)
+        if (p != nullptr)
         {
             m_snifferTrace(p);
             m_promiscSnifferTrace(p);
@@ -396,12 +396,12 @@ QbbNetDevice::DequeueAndTransmit(void)
             uint32_t qIndex = m_queue->GetLastQueue();
             if (qIndex == 0)
             { // this is a pause or cnp, send it immediately!
-                m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
+                GetNode()->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
                 p->RemovePacketTag(t);
             }
             else
             {
-                m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
+                GetNode()->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
                 p->RemovePacketTag(t);
             }
             m_traceDequeue(p, qIndex);
@@ -410,8 +410,8 @@ QbbNetDevice::DequeueAndTransmit(void)
         }
         else
         { // No queue can deliver any packet
-            NS_LOG_INFO("PAUSE prohibits send at node " << m_node->GetId());
-            if (m_node->GetNodeType() == 0 && m_qcnEnabled)
+            NS_LOG_INFO("PAUSE prohibits send at node " << GetNode()->GetId());
+            if (GetNode()->GetNodeType() == 0 && m_qcnEnabled)
             { // nothing to send, possibly due to qcn flow control, if so reschedule sending
                 Time t = Simulator::GetMaximumSimulationTime();
                 for (uint32_t i = 0; i < m_rdmaEQ->GetFlowCount(); i++)
@@ -442,7 +442,7 @@ QbbNetDevice::Resume(unsigned qIndex)
     NS_LOG_FUNCTION(this << qIndex);
     NS_ASSERT_MSG(m_paused[qIndex], "Must be PAUSEd");
     m_paused[qIndex] = false;
-    NS_LOG_INFO("Node " << m_node->GetId() << " dev " << m_ifIndex << " queue " << qIndex
+    NS_LOG_INFO("Node " << GetNode()->GetId() << " dev " << m_ifIndex << " queue " << qIndex
                         << " resumed at " << Simulator::Now().GetSeconds());
     DequeueAndTransmit();
 }
@@ -451,7 +451,7 @@ void
 QbbNetDevice::Receive(Ptr<Packet> packet)
 {
     NS_LOG_FUNCTION(this << packet);
-    if (!m_linkUp)
+    if (!IsLinkUp())
     {
         m_traceDrop(packet, 0);
         return;
@@ -491,10 +491,10 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
     }
     else
     { // non-PFC packets (data, ACK, NACK, CNP...)
-        if (m_node->GetNodeType() > 0)
+        if (GetNode()->GetNodeType() > 0)
         { // switch
             packet->AddPacketTag(FlowIdTag(m_ifIndex));
-            m_node->SwitchReceiveFromDevice(this, packet, ch);
+            GetNode()->SwitchReceiveFromDevice(this, packet, ch);
         }
         else
         { // NIC
@@ -531,7 +531,7 @@ QbbNetDevice::SendPfc(uint32_t qIndex, uint32_t type)
     p->AddHeader(pauseh);
     Ipv4Header ipv4h; // Prepare IPv4 header
     ipv4h.SetProtocol(0xFE);
-    ipv4h.SetSource(m_node->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+    ipv4h.SetSource(GetNode()->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
     ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
     ipv4h.SetPayloadSize(p->GetSize());
     ipv4h.SetTtl(1);
@@ -568,7 +568,7 @@ QbbNetDevice::TransmitStart(Ptr<Packet> p)
     m_txMachineState = BUSY;
     m_currentPkt = p;
     m_phyTxBeginTrace(m_currentPkt);
-    Time txTime = Seconds(m_bps.CalculateTxTime(p->GetSize()));
+    Time txTime = Seconds(p->GetSize() * 8.0 / m_bps.GetBitRate());
     Time txCompleteTime = txTime + m_tInterframeGap;
     NS_LOG_LOGIC("Schedule TransmitCompleteEvent in " << txCompleteTime.GetSeconds() << "sec");
     Simulator::Schedule(txCompleteTime, &QbbNetDevice::TransmitComplete, this);
@@ -642,7 +642,7 @@ void
 QbbNetDevice::TakeDown()
 {
     // TODO: delete packets in the queue, set link down
-    if (m_node->GetNodeType() == 0)
+    if (GetNode()->GetNodeType() == 0)
     {
         // clean the high prio queue
         m_rdmaEQ->CleanHighPrio(m_traceDrop);
@@ -659,7 +659,7 @@ QbbNetDevice::TakeDown()
         while (1)
         {
             Ptr<Packet> p = m_queue->DequeueRR(m_paused);
-            if (p == 0)
+            if (p == nullptr)
             {
                 break;
             }
@@ -673,7 +673,7 @@ QbbNetDevice::TakeDown()
 void
 QbbNetDevice::UpdateNextAvail(Time t)
 {
-    if (!m_nextSend.IsExpired() && t < m_nextSend.GetTs())
+    if (!m_nextSend.IsExpired() && t < Time(m_nextSend.GetTs()))
     {
         Simulator::Cancel(m_nextSend);
         Time delta = t < Simulator::Now() ? Time(0) : t - Simulator::Now();
