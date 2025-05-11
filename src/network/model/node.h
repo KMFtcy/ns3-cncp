@@ -226,6 +226,9 @@ class Node : public Object
      */
   protected:
     uint32_t m_node_type;
+    uint32_t m_id;                         //!< Node id for this node
+    std::vector<Ptr<NetDevice>> m_devices; //!< Devices associated to this node
+
   private:
     /**
      * @brief Notifies all the DeviceAdditionListener about the new device added.
@@ -302,9 +305,7 @@ class Node : public Object
     /// Typedef for NetDevice addition listeners container
     typedef std::vector<DeviceAdditionListener> DeviceAdditionListenerList;
 
-    uint32_t m_id;                                        //!< Node id for this node
     uint32_t m_sid;                                       //!< System id for this node
-    std::vector<Ptr<NetDevice>> m_devices;                //!< Devices associated to this node
     std::vector<Ptr<Application>> m_applications;         //!< Applications associated to this node
     ProtocolHandlerList m_handlers;                       //!< Protocol handlers in the node
     DeviceAdditionListenerList m_deviceAdditionListeners; //!< Device addition listeners in the node
