@@ -388,129 +388,60 @@ CalculateRoutes(NodeContainer& n)
     }
 }
 
-// void SetRoutingEntries(){
-// 	// For each node.
-// 	for (auto i = nextHop.begin(); i != nextHop.end(); i++){
-// 		Ptr<Node> node = i->first;
-// 		auto &table = i->second;
-// 		for (auto j = table.begin(); j != table.end(); j++){
-// 			// The destination node.
-// 			Ptr<Node> dst = j->first;
-// 			// The IP address of the dst.
-// 			Ipv4Address dstAddr = dst->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal();
-// 			// The next hops towards the dst.
-// 			vector<Ptr<Node> > nexts = j->second;
-// 			for (int k = 0; k < (int)nexts.size(); k++){
-// 				Ptr<Node> next = nexts[k];
-// 				uint32_t interface = nbr2if[node][next].idx;
-// 				if (node->GetNodeType() == 1)
-// 					DynamicCast<SwitchNode>(node)->AddTableEntry(dstAddr, interface);
-// 				else{
-// 					node->GetObject<RdmaDriver>()->m_rdma->AddTableEntry(dstAddr, interface);
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
 void
 SetRoutingEntries()
 {
-    for (auto i = nextHop.begin(); i != nextHop.end(); ++i)
+    // For each node.
+    for (auto i = nextHop.begin(); i != nextHop.end(); i++)
     {
         Ptr<Node> node = i->first;
-
-        if (node == nullptr)
-        {
-            std::cerr << "[ERROR] node is nullptr!" << std::endl;
-            continue;
-        }
-
-        // std::cout << "[INFO] Processing node ID: " << node->GetId() << std::endl;
-
         auto& table = i->second;
-
-        for (auto j = table.begin(); j != table.end(); ++j)
+        for (auto j = table.begin(); j != table.end(); j++)
         {
+            // The destination node.
             Ptr<Node> dst = j->first;
-
-            if (dst == nullptr)
-            {
-                std::cerr << "[ERROR] destination node is nullptr!" << std::endl;
-                continue;
-            }
-
-            Ptr<Ipv4> dstIpv4 = dst->GetObject<Ipv4>();
-            if (dstIpv4 == nullptr)
-            {
-                std::cerr << "[ERROR] dst node ID " << dst->GetId() << " has no Ipv4 installed!"
-                          << std::endl;
-                continue;
-            }
-
-            Ipv4Address dstAddr = dstIpv4->GetAddress(1, 0).GetLocal();
-            // std::cout << "[INFO] Destination address for node " << dst->GetId() << ": " <<
-            // dstAddr << std::endl;
-
-            std::vector<Ptr<Node>> nexts = j->second;
-
-            for (int k = 0; k < static_cast<int>(nexts.size()); ++k)
+            // The IP address of the dst.
+            Ipv4Address dstAddr = dst->GetObject<Ipv4>()->GetAddress(1, 0).GetLocal();
+            // The next hops towards the dst.
+            vector<Ptr<Node>> nexts = j->second;
+            for (int k = 0; k < (int)nexts.size(); k++)
             {
                 Ptr<Node> next = nexts[k];
-
-                if (next == nullptr)
-                {
-                    std::cerr << "[ERROR] next-hop node is nullptr!" << std::endl;
-                    continue;
-                }
-
-                if (nbr2if.find(node) == nbr2if.end() ||
-                    nbr2if[node].find(next) == nbr2if[node].end())
-                {
-                    std::cerr << "[ERROR] No interface mapping found for node " << node->GetId()
-                              << " to neighbor " << next->GetId() << std::endl;
-                    continue;
-                }
-
                 uint32_t interface = nbr2if[node][next].idx;
-                // std::cout << "[INFO] Interface to next-hop node " << next->GetId() << ": " <<
-                // interface << std::endl;
-
-                if (node->GetNodeType() == 1) // switch
+                if (node->GetNodeType() == 1)
                 {
-                    Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(node);
-                    if (sw == nullptr)
-                    {
-                        std::cerr << "[ERROR] node ID " << node->GetId() << " is not a SwitchNode!"
-                                  << std::endl;
-                        continue;
-                    }
-                    sw->AddTableEntry(dstAddr, interface);
-                    // std::cout << "[INFO] SwitchNode " << node->GetId() << " added table entry for
-                    // " << dstAddr << std::endl;
+                    DynamicCast<SwitchNode>(node)->AddTableEntry(dstAddr, interface);
                 }
-                else // server
+                else
                 {
-                    Ptr<RdmaDriver> driver = node->GetObject<RdmaDriver>();
-                    if (driver == nullptr)
-                    {
-                        std::cerr << "[ERROR] node ID " << node->GetId() << " has no RdmaDriver!"
-                                  << std::endl;
-                        continue;
-                    }
-
-                    if (driver->m_rdma == nullptr)
-                    {
-                        std::cerr << "[ERROR] RdmaDriver on node " << node->GetId()
-                                  << " has null m_rdma!" << std::endl;
-                        continue;
-                    }
-
-                    driver->m_rdma->AddTableEntry(dstAddr, interface);
-                    // std::cout << "[INFO] Server node " << node->GetId() << " added table entry
-                    // for " << dstAddr << std::endl;
+                    node->GetObject<RdmaDriver>()->m_rdma->AddTableEntry(dstAddr, interface);
                 }
             }
+        }
+    }
+}
+
+void
+PrintRoutingTable()
+{
+    std::cout << "\n=== Routing Table (nextHop) ===" << std::endl;
+    for (const auto& entry : nextHop)
+    {
+        Ptr<Node> from = entry.first;
+        std::cout << "From node " << from->GetId() << " (type=" << from->GetNodeType()
+                  << "):" << std::endl;
+
+        for (const auto& destEntry : entry.second)
+        {
+            Ptr<Node> dst = destEntry.first;
+            std::cout << "  To destination node " << dst->GetId() << " (type=" << dst->GetNodeType()
+                      << "): next hops = ";
+
+            for (auto next : destEntry.second)
+            {
+                std::cout << next->GetId() << " ";
+            }
+            std::cout << std::endl;
         }
     }
 }
@@ -1258,7 +1189,6 @@ main(int argc, char* argv[])
             MakeBoundCallback(&get_pfc, pfc_file, DynamicCast<QbbNetDevice>(d.Get(1))));
     }
 
-
     nic_rate = get_nic_rate(n);
 
     // config switch
@@ -1299,7 +1229,6 @@ main(int argc, char* argv[])
             sw->m_mmu->node_id = sw->GetId();
         }
     }
-
 
 #if ENABLE_QP
     FILE* fct_output = fopen(fct_output_file.c_str(), "w");
