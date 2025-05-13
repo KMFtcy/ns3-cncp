@@ -110,38 +110,45 @@ RdmaEgressQueue::DequeueQindex(int qIndex)
 int
 RdmaEgressQueue::GetNextQindex(bool paused[])
 {
-    bool found = false;
-    uint32_t qIndex;
+    // 1. Prioritize the ACK queue (highest priority).
+    // If the ACK queue is not PAUSED and has packets, return -1, indicating an ACK should be sent.
     if (!paused[ack_q_idx] && m_ackQ->GetNPackets() > 0)
     {
         return -1;
     }
 
-    // no pkt in highest priority queue, do rr for each qp
-    int res = -1024;
+    // 2. Round-robin polling for all normal queues (QPs).
+    // Only select a QP that is not PAUSED, has data left, is not window-bounded, and is available now.
+    int res = -1024; // Default: no packet to send
     uint32_t fcount = m_qpGrp->GetN();
-    uint32_t min_finish_id = 0xffffffff;
-    for (qIndex = 1; qIndex <= fcount; qIndex++)
+    uint32_t min_finish_id = 0xffffffff; // For tracking the smallest finished QP index
+    for (uint32_t qIndex = 1; qIndex <= fcount; qIndex++)
     {
         uint32_t idx = (qIndex + m_rrlast) % fcount;
         Ptr<RdmaQueuePair> qp = m_qpGrp->Get(idx);
+        // The QP is eligible if:
+        // 1. Its priority group is not PAUSED
+        // 2. It has data left to send
+        // 3. It is not window-bounded
+        // 4. Its next available time has arrived
         if (!paused[qp->m_pg] && qp->GetBytesLeft() > 0 && !qp->IsWinBound())
         {
             if (m_qpGrp->Get(idx)->m_nextAvail.GetTimeStep() >
-                Simulator::Now().GetTimeStep()) // not available now
+                Simulator::Now().GetTimeStep()) // Not available yet
             {
                 continue;
             }
             res = idx;
             break;
         }
+        // Track the smallest finished QP index for later cleanup
         else if (qp->IsFinished())
         {
             min_finish_id = idx < min_finish_id ? idx : min_finish_id;
         }
     }
 
-    // clear the finished qp
+    // 3. Clean up finished QPs to keep the queue group tidy
     if (min_finish_id < 0xffffffff)
     {
         int nxt = min_finish_id;
@@ -150,7 +157,8 @@ RdmaEgressQueue::GetNextQindex(bool paused[])
         {
             if (!qps[i]->IsFinished())
             {
-                if (i == res) // update res to the idx after removing finished qp
+                // If the selected QP is after the removed QPs, update its index
+                if (i == res)
                 {
                     res = nxt;
                 }
@@ -160,6 +168,10 @@ RdmaEgressQueue::GetNextQindex(bool paused[])
         }
         qps.resize(nxt);
     }
+    // Return value:
+    //   -1: send ACK
+    //   >=0: send the corresponding QP
+    //   -1024: nothing to send
     return res;
 }
 
