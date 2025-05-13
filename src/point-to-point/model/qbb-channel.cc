@@ -98,6 +98,9 @@ QbbChannel::TransmitStart (
   NS_ASSERT (m_link[0].m_state != INITIALIZING);
   NS_ASSERT (m_link[1].m_state != INITIALIZING);
 
+  // This is a full-duplex channel with two links (one for each direction).
+  // Determine which end (wire) the packet is sent from: 0 for m_link[0], 1 for m_link[1].
+  // This helps forward the packet to the correct destination device.
   uint32_t wire = src == m_link[0].m_src ? 0 : 1;
 
   Simulator::ScheduleWithContext (m_link[wire].m_dst->GetNode ()->GetId (),
