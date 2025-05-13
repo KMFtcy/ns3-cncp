@@ -82,8 +82,10 @@ RdmaEgressQueue::RdmaEgressQueue()
     m_rrlast = 0;
     m_qlast = 0;
     m_ackQ = CreateObject<DropTailQueue<Packet>>();
-    m_ackQ->SetAttribute("MaxSize",
-                         QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS, 0xffffffff))); // queue limit is on a higher level, not here
+    m_ackQ->SetAttribute(
+        "MaxSize",
+        QueueSizeValue(QueueSize(QueueSizeUnit::PACKETS,
+                                 0xffffffff))); // queue limit is on a higher level, not here
 }
 
 Ptr<Packet>
@@ -336,6 +338,9 @@ QbbNetDevice::TransmitComplete(void)
 void
 QbbNetDevice::DequeueAndTransmit(void)
 {
+    /*
+     * Check sending condition
+     */
     NS_LOG_FUNCTION(this);
     if (!IsLinkUp())
     {
@@ -346,9 +351,12 @@ QbbNetDevice::DequeueAndTransmit(void)
         return; // Quit if channel busy
     }
     Ptr<Packet> p;
+    /*
+     * Send packets at source node
+     */
     if (GetNode()->GetNodeType() == 0)
     {
-        int qIndex = m_rdmaEQ->GetNextQindex(m_paused);
+        int qIndex = m_rdmaEQ->GetNextQindex(m_paused); // get the next qp to send
         if (qIndex != -1024)
         {
             if (qIndex == -1)
@@ -358,15 +366,15 @@ QbbNetDevice::DequeueAndTransmit(void)
                 TransmitStart(p);
                 return;
             }
-            // a qp dequeue a packet
-            Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
+            // a qp dequeue a packet and transmit
             p = m_rdmaEQ->DequeueQindex(qIndex);
-
-            // transmit
-            m_traceQpDequeue(p, lastQp);
             TransmitStart(p);
 
-            // update for the next avail time
+            // trace the qp dequeue
+            Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
+            m_traceQpDequeue(p, lastQp);
+
+            // After successfully sending a packet, notify the upper/related module that "this QP has just sent a packet" and update the next available sending time of the QP (next avail time)
             m_rdmaPktSent(lastQp, p, m_tInterframeGap);
         }
         else
@@ -392,6 +400,9 @@ QbbNetDevice::DequeueAndTransmit(void)
         }
         return;
     }
+    /*
+     * Transfer packets at source node
+     */
     else
     {                                     // switch, doesn't care about qcn, just send
         p = m_queue->DequeueRR(m_paused); // this is round-robin
