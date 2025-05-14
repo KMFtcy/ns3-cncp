@@ -401,7 +401,7 @@ QbbNetDevice::DequeueAndTransmit(void)
         return;
     }
     /*
-     * Transfer packets at source node
+     * Transfer packets at intermediate node
      */
     else
     {                                     // switch, doesn't care about qcn, just send
