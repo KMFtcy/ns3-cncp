@@ -13,6 +13,8 @@
 #include "qbb-header.h"
 #include "cn-header.h"
 
+NS_LOG_COMPONENT_DEFINE("RdmaHw");
+
 namespace ns3{
 
 TypeId RdmaHw::GetTypeId (void)
@@ -174,6 +176,11 @@ TypeId RdmaHw::GetTypeId (void)
 				UintegerValue(65536),
 				MakeUintegerAccessor(&RdmaHw::pint_smpl_thresh),
 				MakeUintegerChecker<uint32_t>())
+		.AddAttribute("CodingTransport",
+				"Enable coding-based transport or not",
+				BooleanValue(false),
+				MakeBooleanAccessor(&RdmaHw::m_is_use_coding_transport),
+				MakeBooleanChecker())
 		;
 	return tid;
 }
@@ -438,6 +445,17 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 }
 
 int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch){
+	// coding-based transport
+	if (m_is_use_coding_transport){
+		if (ch.l3Prot == 0x11){ // UDP
+			ReceiveCodingUdp(p, ch);
+		}else if (ch.l3Prot == 0xFC){ // ACK
+			ReceiveCodingAck(p, ch);
+		}
+		return 0;
+	}
+
+	// GBN-based transport
 	if (ch.l3Prot == 0x11){ // UDP
 		ReceiveUdp(p, ch);
 	}else if (ch.l3Prot == 0xFF){ // CNP
@@ -447,6 +465,133 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch){
 	}else if (ch.l3Prot == 0xFC){ // ACK
 		ReceiveAck(p, ch);
 	}
+	return 0;
+}
+
+Ptr<Packet> RdmaHw::GetNxtCodingPacket(Ptr<RdmaQueuePair> qp){
+	uint32_t payload_size = m_mtu; // send a encoding symbol
+	Ptr<Packet> p = Create<Packet> (payload_size);
+	// add SeqTsHeader
+	RDMASeqTsHeader seqTs;
+	seqTs.SetSeq (qp->snd_nxt);
+	seqTs.SetPG (qp->m_pg);
+	p->AddHeader (seqTs);
+	// add udp header
+	UdpHeader udpHeader;
+	udpHeader.SetDestinationPort (qp->dport);
+	udpHeader.SetSourcePort (qp->sport);
+	p->AddHeader (udpHeader);
+	// add ipv4 header
+	Ipv4Header ipHeader;
+	ipHeader.SetSource (qp->sip);
+	ipHeader.SetDestination (qp->dip);
+	ipHeader.SetProtocol (0x11);
+	ipHeader.SetPayloadSize (p->GetSize());
+	ipHeader.SetTtl (64);
+	ipHeader.SetTos (0);
+	ipHeader.SetIdentification (qp->m_ipid);
+	p->AddHeader(ipHeader);
+	// add ppp header
+	PppHeader ppp;
+	ppp.SetProtocol (0x0021); // EtherToPpp(0x800), see point-to-point-net-device.cc
+	p->AddHeader (ppp);
+
+	// update state
+	qp->snd_nxt += payload_size;
+	qp->m_ipid++;
+
+	// return
+	return p;
+}
+
+int RdmaHw::ReceiveCodingUdp(Ptr<Packet> p, CustomHeader &ch){
+	uint8_t ecnbits = ch.GetIpv4EcnBits();
+
+	uint32_t payload_size = p->GetSize() - ch.GetSerializedSize();
+
+	// find corresponding rx queue pair
+	Ptr<RdmaRxQueuePair> rxQp = GetRxQp(ch.dip, ch.sip, ch.udp.dport, ch.udp.sport, ch.udp.pg, true);
+	if (ecnbits != 0){
+		rxQp->m_ecn_source.ecnbits |= ecnbits;
+		rxQp->m_ecn_source.qfb++;
+	}
+	rxQp->m_ecn_source.total++;
+	rxQp->m_milestone_rx = m_ack_interval;
+
+	// recoding received bytes, every bytes is useful to decode
+	uint32_t expected = rxQp->ReceiverNextExpectedSeq;
+	rxQp->ReceiverNextExpectedSeq = expected + payload_size;
+	// TODO: Enable ack interval check
+
+	// sending feedback
+	qbbHeader seqh;
+	seqh.SetSeq(rxQp->ReceiverNextExpectedSeq);
+	seqh.SetPG(ch.udp.pg);
+	seqh.SetSport(ch.udp.dport);
+	seqh.SetDport(ch.udp.sport);
+	seqh.SetIntHeader(ch.udp.ih);
+	if (ecnbits)
+		seqh.SetCnp();
+
+	Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
+	newp->AddHeader(seqh);
+
+	Ipv4Header head;	// Prepare IPv4 header
+	head.SetDestination(Ipv4Address(ch.sip));
+	head.SetSource(Ipv4Address(ch.dip));
+	head.SetProtocol(0xFC); //ack=0xFC nack=0xFD
+	head.SetTtl(64);
+	head.SetPayloadSize(newp->GetSize());
+	head.SetIdentification(rxQp->m_ipid++);
+
+	newp->AddHeader(head);
+	AddHeader(newp, 0x800);	// Attach PPP header
+	// send
+	uint32_t nic_idx = GetNicIdxOfRxQp(rxQp);
+	m_nic[nic_idx].dev->RdmaEnqueueHighPrioQ(newp);
+	m_nic[nic_idx].dev->TriggerTransmit();
+
+	return 0;
+}
+
+int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
+	NS_LOG_INFO("ReceiveCodingAck at node " << m_node->GetId());
+	uint16_t qIndex = ch.ack.pg;
+	uint16_t port = ch.ack.dport;
+	uint32_t seq = ch.ack.seq;
+	uint8_t cnp = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
+	int i;
+	Ptr<RdmaQueuePair> qp = GetQp(ch.sip, port, qIndex);
+	if (qp == nullptr){
+		std::cout << "ERROR: " << "node:" << m_node->GetId() << ' ' << (ch.l3Prot == 0xFC ? "ACK" : "NACK") << " NIC cannot find the flow\n";
+		return 0;
+	}
+
+	uint32_t nic_idx = GetNicIdxOfQp(qp);
+	Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
+	qp->Acknowledge(qp->snd_una + m_mtu); // coding-based transport always push forward receiver's expected sequence number when receiving an ack
+	if (qp->IsFinished()){
+		QpComplete(qp);
+	}
+
+	// handle cnp
+	// if (cnp){
+	// 	if (m_cc_mode == 1){ // mlx version
+	// 		cnp_received_mlx(qp);
+	// 	} 
+	// }
+
+	// if (m_cc_mode == 3){
+	// 	HandleAckHp(qp, p, ch);
+	// }else if (m_cc_mode == 7){
+	// 	HandleAckTimely(qp, p, ch);
+	// }else if (m_cc_mode == 8){
+	// 	HandleAckDctcp(qp, p, ch);
+	// }else if (m_cc_mode == 10){
+	// 	HandleAckHpPint(qp, p, ch);
+	// }
+	// ACK may advance the on-the-fly window, allowing more packets to send
+	// dev->TriggerTransmit();
 	return 0;
 }
 
@@ -546,6 +691,12 @@ void RdmaHw::RedistributeQp(){
 }
 
 Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp){
+	// coding-based transport
+	if (m_is_use_coding_transport){
+		return GetNxtCodingPacket(qp);
+	}
+
+	// GBN-based transport
 	uint32_t payload_size = qp->GetBytesLeft();
 	if (m_mtu < payload_size)
 		payload_size = m_mtu;

@@ -1247,7 +1247,7 @@ main(int argc, char* argv[])
         { // is server
             // create RdmaHw
             Ptr<RdmaHw> rdmaHw = CreateObject<RdmaHw>();
-            rdmaHw->SetUseCodingTransport(true);
+            rdmaHw->SetAttribute("CodingTransport", BooleanValue(use_coding_transport));
             rdmaHw->SetAttribute("ClampTargetRate", BooleanValue(clamp_target_rate));
             rdmaHw->SetAttribute("AlphaResumInterval", DoubleValue(alpha_resume_interval));
             rdmaHw->SetAttribute("RPTimer", DoubleValue(rp_timer));

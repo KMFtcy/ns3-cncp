@@ -58,6 +58,18 @@ public:
 	uint32_t GetNicIdxOfRxQp(Ptr<RdmaRxQueuePair> q); // get the NIC index of the rxQp
 	void DeleteRxQp(uint32_t dip, uint16_t pg, uint16_t dport);
 
+
+	/**********************
+	* Coding-based transport
+	*********************/
+    bool m_is_use_coding_transport;
+	Ptr<Packet> GetNxtCodingPacket(Ptr<RdmaQueuePair> qp); // get next packet to send, inc snd_nxt
+	int ReceiveCodingUdp(Ptr<Packet> p, CustomHeader &ch);
+	int ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch);
+
+	/**********************
+	* GBN-based transport
+	*********************/
 	int ReceiveUdp(Ptr<Packet> p, CustomHeader &ch);
 	int ReceiveCnp(Ptr<Packet> p, CustomHeader &ch);
 	int ReceiveAck(Ptr<Packet> p, CustomHeader &ch); // handle both ACK and NACK
