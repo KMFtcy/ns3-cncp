@@ -7,7 +7,6 @@
 #include "ns3/log.h"
 #include "ns3/object-vector.h"
 #include "ns3/packet.h"
-#include "ns3/random-variable-stream.h"
 #include "ns3/simulator.h"
 #include "ns3/uinteger.h"
 

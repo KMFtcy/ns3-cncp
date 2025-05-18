@@ -4,6 +4,7 @@
 #include <ns3/node.h>
 
 #include <unordered_map>
+#include "ns3/random-variable-stream.h"
 
 namespace ns3
 {
