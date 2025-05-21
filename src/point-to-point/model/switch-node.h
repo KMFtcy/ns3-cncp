@@ -5,6 +5,7 @@
 #include "qbb-net-device.h"
 #include "switch-mmu.h"
 
+#include "ns3/cncp-flowkey.h"
 #include <ns3/node.h>
 
 #include <unordered_map>
@@ -13,43 +14,6 @@ namespace ns3
 {
 
 class Packet;
-
-// Define FlowKey struct
-struct FlowKey
-{
-    uint32_t sip;
-    uint32_t dip;
-    uint16_t sport;
-    uint16_t dport;
-    uint8_t protocol;
-
-    // Comparison operator, required by unordered_map
-    bool operator==(const FlowKey& other) const
-    {
-        return std::tie(sip, dip, sport, dport, protocol) ==
-               std::tie(other.sip, other.dip, other.sport, other.dport, other.protocol);
-    }
-};
-
-// Custom hash function
-struct FlowKeyHash
-{
-    std::size_t operator()(const FlowKey& key) const
-    {
-        std::size_t h1 = std::hash<uint32_t>{}(key.sip);
-        std::size_t h2 = std::hash<uint32_t>{}(key.dip);
-        std::size_t h3 = std::hash<uint16_t>{}(key.sport);
-        std::size_t h4 = std::hash<uint16_t>{}(key.dport);
-        std::size_t h5 = std::hash<uint8_t>{}(key.protocol);
-        // Combine hash values
-        std::size_t result = h1;
-        result ^= h2 + 0x9e3779b9 + (result << 6) + (result >> 2);
-        result ^= h3 + 0x9e3779b9 + (result << 6) + (result >> 2);
-        result ^= h4 + 0x9e3779b9 + (result << 6) + (result >> 2);
-        result ^= h5 + 0x9e3779b9 + (result << 6) + (result >> 2);
-        return result;
-    }
-};
 
 class SwitchNode : public Node
 {
@@ -90,7 +54,7 @@ class SwitchNode : public Node
 
   private:
     int GetOutDev(Ptr<const Packet>, CustomHeader& ch);
-    void SendToDev(Ptr<Packet> p, CustomHeader& ch);
+    void SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& ch);
     static uint32_t EcmpHash(const uint8_t* key, size_t len, uint32_t seed);
     void CheckAndSendPfc(uint32_t inDev, uint32_t qIndex);
     void CheckAndSendResume(uint32_t inDev, uint32_t qIndex);
@@ -113,6 +77,16 @@ class SwitchNode : public Node
 
     // CNCP Flow Control
     bool CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch);
+    void CNCPNotifyIngress(
+        Ptr<Packet> packet,
+        CustomHeader& ch,
+        uint32_t output_dev_idx,
+        Ptr<NetDevice> device); // notify ingress and update flow control table. Can not integrate
+                                // with CNCPAdmitIngress because other ACLs are applied before this
+                                // and may reject the packet, in such case, this must not be called.
+    // void CNCPNotifyEgress(Ptr<Packet> packet);
+    // void StartReportCNCP();
+    // void ReportCNCPStatus();
 };
 
 } /* namespace ns3 */
