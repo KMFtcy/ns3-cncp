@@ -84,7 +84,7 @@ class SwitchNode : public Node
         Ptr<NetDevice> device); // notify ingress and update flow control table. Can not integrate
                                 // with CNCPAdmitIngress because other ACLs are applied before this
                                 // and may reject the packet, in such case, this must not be called.
-    // void CNCPNotifyEgress(Ptr<Packet> packet);
+    void CNCPNotifyEgress(Ptr<Packet> packet);
     // void StartReportCNCP();
     // void ReportCNCPStatus();
 };

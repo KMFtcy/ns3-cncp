@@ -290,6 +290,10 @@ SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p
             }
         }
         // CheckAndSendPfc(inDev, qIndex);
+        if (m_ccMode == 11)
+        {
+            CNCPNotifyEgress(p);
+        }
         CheckAndSendResume(inDev, qIndex);
     }
     if (1)
@@ -555,6 +559,68 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     }
 
     m_flowBytesOnNodeTable[key] += packet->GetSize();
+
+    return;
+}
+
+void
+SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
+{
+    NS_LOG_DEBUG("CNCP notify egress");
+    // obtain flow key from custom header
+    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+    ch.getInt = 1; // parse INT header
+    packet->PeekHeader(ch);
+    uint32_t sip = ch.sip;
+    uint32_t dip = ch.dip;
+    uint16_t sport = 0, dport = 0;
+    uint8_t protocol = ch.l3Prot;
+    if (ch.l3Prot == 0x6)
+    { // TCP
+        sport = ch.tcp.sport;
+        dport = ch.tcp.dport;
+    }
+    else if (ch.l3Prot == 0x11)
+    { // UDP
+        sport = ch.udp.sport;
+        dport = ch.udp.dport;
+    }
+    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+    { // ACK/NACK
+        sport = ch.ack.sport;
+        dport = ch.ack.dport;
+    }
+    FlowKey key;
+    key.sip = sip;
+    key.dip = dip;
+    key.sport = sport;
+    key.dport = dport;
+    key.protocol = protocol;
+
+    // reduce flow bytes on node
+    m_flowBytesOnNodeTable[key] -= packet->GetSize();
+
+    // if flow leaves the node, remove it from the table
+    if (m_flowBytesOnNodeTable[key] == 0)
+    {
+        NS_LOG_DEBUG("Egress: Flow leaves the node");
+        m_flowIngressWindowTable.erase(key);
+        m_flowLastPktTsTable.erase(key);
+        m_flowBytesOnNodeTable.erase(key);
+        // share this flow's rate with other flows
+        uint64_t rate = m_flowControlRateTable.erase(key);
+        size_t activeFlowCount = m_flowControlRateTable.size();
+        if (activeFlowCount > 1)
+        { // there are other flows on the node
+            uint64_t sharedRate = rate / (activeFlowCount - 1);
+            for (auto& it : m_flowControlRateTable)
+            {
+                it.second += sharedRate;
+            }
+        }
+        m_flowControlRateTable.erase(key);
+        // m_flowPrevHopDevTable.erase(key);
+    }
 
     return;
 }
