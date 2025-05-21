@@ -14,6 +14,42 @@ namespace ns3
 
 class Packet;
 
+// Define FlowKey struct
+struct FlowKey
+{
+    uint32_t sip;
+    uint32_t dip;
+    uint16_t sport;
+    uint16_t dport;
+    uint8_t protocol;
+
+    // Comparison operator, required by unordered_map
+    bool operator==(const FlowKey& other) const
+    {
+        return std::tie(sip, dip, sport, dport, protocol) ==
+               std::tie(other.sip, other.dip, other.sport, other.dport, other.protocol);
+    }
+};
+
+// Custom hash function
+struct FlowKeyHash
+{
+    std::size_t operator()(const FlowKey& key) const
+    {
+        std::size_t h1 = std::hash<uint32_t>{}(key.sip);
+        std::size_t h2 = std::hash<uint32_t>{}(key.dip);
+        std::size_t h3 = std::hash<uint16_t>{}(key.sport);
+        std::size_t h4 = std::hash<uint16_t>{}(key.dport);
+        std::size_t h5 = std::hash<uint8_t>{}(key.protocol);
+        // Combine hash values
+        std::size_t result = h1;
+        result ^= h2 + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= h3 + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= h4 + 0x9e3779b9 + (result << 6) + (result >> 2);
+        result ^= h5 + 0x9e3779b9 + (result << 6) + (result >> 2);
+        return result;
+    }
+};
 
 class SwitchNode : public Node
 {
@@ -32,6 +68,18 @@ class SwitchNode : public Node
     uint32_t m_lastPktSize[pCnt];
     uint64_t m_lastPktTs[pCnt]; // ns
     double m_u[pCnt];
+
+    // Flow control table for CNCP, key is flow id and value is target flow rate
+    // for iterative update
+    // uint64_t m_cncp_report_interval = 1000; // 0.001ms
+    // std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable;
+    // uint32_t m_gamma = 0.1;
+    // uint32_t m_lambda = 0.1;
+    // for flow rate control
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowControlRateTable;
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowIngressWindowTable;
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowLastPktTsTable;
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable;
 
   protected:
     bool m_ecnEnabled;
@@ -63,7 +111,8 @@ class SwitchNode : public Node
     int log2apprx(int x, int b, int m, int l); // given x of at most b bits, use most significant m
                                                // bits of x, calc the result in l bits
 
-
+    // CNCP Flow Control
+    bool CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch);
 };
 
 } /* namespace ns3 */

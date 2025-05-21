@@ -18,6 +18,7 @@
 
 namespace ns3
 {
+NS_LOG_COMPONENT_DEFINE("SwitchNode");
 
 TypeId
 SwitchNode::GetTypeId(void)
@@ -167,7 +168,7 @@ SwitchNode::SendToDev(Ptr<Packet> p, CustomHeader& ch)
         if (qIndex != 0)
         { // not highest priority
             if (m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) &&
-                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()))
+                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) && CNCPAdmitIngress(p, ch))
             { // Admission control
                 m_mmu->UpdateIngressAdmission(inDev, qIndex, p->GetSize());
                 m_mmu->UpdateEgressAdmission(idx, qIndex, p->GetSize());
@@ -412,6 +413,70 @@ SwitchNode::log2apprx(int x, int b, int m, int l)
 #endif
     }
     return int(log2(x) * (1 << logres_shift(b, l)));
+}
+
+bool
+SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
+{
+    // If CNCP is not enabled, always admit
+    if (m_ccMode != 11)
+    {
+        return true;
+    }
+    // obtain flow key from custom header
+    uint32_t sip = ch.sip;
+    uint32_t dip = ch.dip;
+    uint16_t sport = 0, dport = 0;
+    uint8_t protocol = ch.l3Prot;
+    if (ch.l3Prot == 0x6)
+    { // TCP
+        sport = ch.tcp.sport;
+        dport = ch.tcp.dport;
+    }
+    else if (ch.l3Prot == 0x11)
+    { // UDP
+        sport = ch.udp.sport;
+        dport = ch.udp.dport;
+    }
+    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+    { // ACK/NACK
+        sport = ch.ack.sport;
+        dport = ch.ack.dport;
+    }
+    FlowKey key;
+    key.sip = sip;
+    key.dip = dip;
+    key.sport = sport;
+    key.dport = dport;
+    key.protocol = protocol;
+    // check if flow is already in the table
+    auto it = m_flowControlRateTable.find(key);
+    // admission control to simulate flow control
+    if (it != m_flowControlRateTable.end())
+    { // flow is already in the table
+        uint64_t flowRate = it->second;
+        uint64_t packetSize = packet->GetSize();
+        // get timestamp of the last packet
+        uint64_t lastPktTs = m_flowLastPktTsTable[key];
+        uint64_t currentTs = Simulator::Now().GetTimeStep();
+        uint64_t dt = currentTs - lastPktTs;
+        uint64_t bytesWindow = m_flowIngressWindowTable[key] + flowRate * dt;
+        if (bytesWindow < packetSize)
+        {
+            NS_LOG_DEBUG("Admit: packet drop");
+            return false;
+        }
+        else
+        {
+            NS_LOG_DEBUG("Admit: packet admit");
+            return true;
+        }
+    }
+    else
+    { // flow is not in the table, means it is a new flow, always admit
+        NS_LOG_DEBUG("Admit: new flow, packet admit");
+        return true;
+    }
 }
 
 } /* namespace ns3 */
