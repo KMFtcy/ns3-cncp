@@ -100,8 +100,6 @@ uint32_t CustomHeader::GetSerializedSize (void) const{
 			len += 8;
 		else if (l3Prot == 0xFE)
 			len += 9;
-		else if (l3Prot == 0xFB) // CNCP
-			len += 2 + (!flowInfos.empty() ? (2 + flowInfos.size() * sizeof(FlowInfo)) : 0); // Length + Flow infos if present
 	}
 	return len;
 }
@@ -181,24 +179,6 @@ void CustomHeader::Serialize (Buffer::Iterator start) const{
 		  i.WriteU32 (pfc.time);
 		  i.WriteU32 (pfc.qlen);
 		  i.WriteU8 (pfc.qIndex);
-	  }else if (l3Prot == 0xFB){ // CNCP
-		  // Write length first
-		  i.WriteHtonU16(cncp.dataLength);
-		  
-		  // Write flow infos if present
-		  if (!flowInfos.empty()) {
-			  i.WriteHtonU16(flowInfos.size());
-			  
-			  // Serialize each flow info
-			  for (const auto& flow : flowInfos) {
-				  i.WriteHtonU32(flow.srcIp);
-				  i.WriteHtonU32(flow.dstIp);
-				  i.WriteHtonU16(flow.srcPort);
-				  i.WriteHtonU16(flow.dstPort);
-				  i.WriteU8(flow.protocol);
-				  i.WriteHtonU32(flow.flowInfo);
-			  }
-		  }
 	  }
   }
 }
@@ -207,6 +187,7 @@ uint32_t
 CustomHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+
   // L2
   int l2Size = 0;
   if (headerType & L2_Header){
@@ -337,33 +318,9 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 		  pfc.qlen = i.ReadU32 ();
 		  pfc.qIndex = i.ReadU8 ();
 		  l4Size = 9;
-	  }else if (l3Prot == 0xFB){ // CNCP
-		  // Read length first
-		  cncp.dataLength = i.ReadNtohU16();
-		  l4Size = 2; // Length field size
-		  
-		  // Check if there are flow infos
-		  if (cncp.dataLength > 0) {
-			  uint16_t numFlows = i.ReadNtohU16();
-			  
-			  // Clear and resize the vector
-			  flowInfos.clear();
-			  flowInfos.resize(numFlows);
-			  
-			  // Read each flow info
-			  for (auto& flow : flowInfos) {
-				  flow.srcIp = i.ReadNtohU32();
-				  flow.dstIp = i.ReadNtohU32();
-				  flow.srcPort = i.ReadNtohU16();
-				  flow.dstPort = i.ReadNtohU16();
-				  flow.protocol = i.ReadU8();
-				  flow.flowInfo = i.ReadNtohU32();
-			  }
-			  
-			  l4Size += 2 + numFlows * sizeof(FlowInfo); // Flow count + flow infos size
-		  }
 	  }
   }
+
   return l2Size + l3Size + l4Size;
 }
 

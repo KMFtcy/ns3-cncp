@@ -23,23 +23,8 @@
 
 #include "ns3/header.h"
 #include "ns3/int-header.h"
-#include <vector>
 
 namespace ns3 {
-
-// CNCP Flow Information structure
-struct FlowInfo {
-    // Five-tuple
-    uint32_t srcIp;     //!< Source IP address
-    uint32_t dstIp;     //!< Destination IP address
-    uint16_t srcPort;   //!< Source port
-    uint16_t dstPort;   //!< Destination port
-    uint8_t protocol;   //!< Protocol
-    
-    // Flow information
-    uint32_t flowInfo;  //!< 32-bit flow information
-};
-
 /**
  * \ingroup ipv4
  *
@@ -103,9 +88,6 @@ public:
   uint16_t m_checksum; //!< checksum
   uint16_t m_headerSize; //!< IP header size
 
-  // Move FlowInfo vector outside the union
-  std::vector<FlowInfo> flowInfos;   //!< Vector of flow information
-
   union {
 	  struct {
 		  uint16_t sport;        //!< Source port
@@ -149,10 +131,6 @@ public:
 		  uint32_t qlen;
 		  uint8_t qIndex;
 	  } pfc;
-	  // CNCP Header
-	  struct {
-		  uint16_t dataLength;   //!< Length of the following data
-	  } cncp;
   };
 
   uint8_t GetIpv4EcnBits (void) const;
@@ -165,4 +143,3 @@ public:
 
 
 #endif /* CUSTOM_HEADER_H */
-
