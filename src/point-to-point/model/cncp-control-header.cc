@@ -90,21 +90,21 @@ CncpControlHeader::Print (std::ostream &os) const
 uint32_t
 CncpControlHeader::GetSerializedSize (void) const
 {
-  return 8; // 4 bytes for flow_id + 4 bytes for flow_info
+  return 12; // 4 bytes for flow_id + 8 bytes for flow_info
 }
 
 void
 CncpControlHeader::Serialize (Buffer::Iterator start) const
 {
   start.WriteU32 (m_flow_id);
-  start.WriteU32 (m_flow_info);
+  start.WriteU64 (m_flow_info);
 }
 
 uint32_t
 CncpControlHeader::Deserialize (Buffer::Iterator start)
 {
   m_flow_id = start.ReadU32 ();
-  m_flow_info = start.ReadU32 ();
+  m_flow_info = start.ReadU64 ();
   return GetSerializedSize ();
 }
 
