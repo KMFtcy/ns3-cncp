@@ -512,6 +512,9 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
             Resume(qIndex);
         }
     }
+    else if (ch.l3Prot == 0xFB){
+        std::cout << "receive CNCP report" << std::endl;
+    }
     else
     { // non-PFC packets (data, ACK, NACK, CNP...)
         if (GetNode()->GetNodeType() > 0)
@@ -701,6 +704,36 @@ QbbNetDevice::UpdateNextAvail(Time t)
         Simulator::Cancel(m_nextSend);
         Time delta = t < Simulator::Now() ? Time(0) : t - Simulator::Now();
         m_nextSend = Simulator::Schedule(delta, &QbbNetDevice::DequeueAndTransmit, this);
+    }
+}
+
+void
+QbbNetDevice::SendCNCPReport(
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable)
+{
+    FlowKeyHash hasher;
+
+    for (const auto& flow : m_flowBytesOnNodeTable)
+    {
+        uint32_t flow_id = hasher(flow.first);
+
+        Ptr<Packet> p = Create<Packet>(0);
+        CncpControlHeader cncp_ch(flow_id, flow.second);
+        p->AddHeader(cncp_ch);
+        Ipv4Header ipv4h; // Prepare IPv4 header
+        ipv4h.SetProtocol(0xFB);
+        ipv4h.SetSource(GetNode()->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+        ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
+        ipv4h.SetPayloadSize(p->GetSize());
+        ipv4h.SetTtl(1);
+        // ipv4h.SetIdentification(UniformVariable(0, 65536).GetValue());
+        ipv4h.SetIdentification(m_uv->GetInteger(0, 65535));
+        p->AddHeader(ipv4h);
+        AddHeader(p, 0x800);
+        CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header |
+                        CustomHeader::L4_Header);
+        p->PeekHeader(ch);
+        SwitchSend(0, p, ch);
     }
 }
 } // namespace ns3

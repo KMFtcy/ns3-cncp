@@ -35,10 +35,10 @@ class SwitchNode : public Node
 
     // Flow control table for CNCP, key is flow id and value is target flow rate
     // for iterative update
-    // uint64_t m_cncp_report_interval = 1000; // 0.001ms
-    // std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable;
-    // uint32_t m_gamma = 0.1;
-    // uint32_t m_lambda = 0.1;
+    uint64_t m_cncp_report_interval = 1000; // 0.001ms
+    std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable;
+    uint32_t m_gamma = 0.1;
+    uint32_t m_lambda = 0.1;
     // for flow rate control
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowControlRateTable;
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowIngressWindowTable;
@@ -85,8 +85,8 @@ class SwitchNode : public Node
                                 // with CNCPAdmitIngress because other ACLs are applied before this
                                 // and may reject the packet, in such case, this must not be called.
     void CNCPNotifyEgress(Ptr<Packet> packet);
-    // void StartReportCNCP();
-    // void ReportCNCPStatus();
+    void StartReportCNCP();
+    void ReportCNCPStatus();
 };
 
 } /* namespace ns3 */

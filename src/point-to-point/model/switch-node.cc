@@ -76,6 +76,8 @@ SwitchNode::SwitchNode()
     {
         m_u[i] = 0;
     }
+
+    StartReportCNCP();
 }
 
 int
@@ -472,18 +474,15 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t bytesWindow = m_flowIngressWindowTable[key] + flowRate * dt;
         if (bytesWindow < packetSize)
         {
-            NS_LOG_DEBUG("Admit: packet drop");
             return false;
         }
         else
         {
-            NS_LOG_DEBUG("Admit: packet admit");
             return true;
         }
     }
     else
     { // flow is not in the table, means it is a new flow, always admit
-        NS_LOG_DEBUG("Admit: new flow, packet admit");
         return true;
     }
 }
@@ -555,7 +554,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         }
         m_flowControlRateTable[key] = flowRate;
         m_flowBytesOnNodeTable[key] = 0;
-        // m_flowPrevHopDevTable[key] = input_device;
+        m_flowPrevHopDevTable[key] = input_device;
     }
 
     m_flowBytesOnNodeTable[key] += packet->GetSize();
@@ -566,7 +565,6 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
 void
 SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
 {
-    NS_LOG_DEBUG("CNCP notify egress");
     // obtain flow key from custom header
     CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
     ch.getInt = 1; // parse INT header
@@ -603,7 +601,6 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
     // if flow leaves the node, remove it from the table
     if (m_flowBytesOnNodeTable[key] == 0)
     {
-        NS_LOG_DEBUG("Egress: Flow leaves the node");
         m_flowIngressWindowTable.erase(key);
         m_flowLastPktTsTable.erase(key);
         m_flowBytesOnNodeTable.erase(key);
@@ -619,10 +616,65 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
             }
         }
         m_flowControlRateTable.erase(key);
-        // m_flowPrevHopDevTable.erase(key);
+        m_flowPrevHopDevTable.erase(key);
     }
 
     return;
+}
+
+void
+SwitchNode::ReportCNCPStatus()
+{
+    std::cout << "ReportCNCPStatus" << std::endl;
+    // Create a map to store flows grouped by device
+    std::unordered_map<Ptr<NetDevice>, std::unordered_map<FlowKey, uint64_t, FlowKeyHash>>
+        deviceFlows;
+
+    // Iterate through all flows in m_flowPrevHopDevTable
+    for (const auto& flow : m_flowPrevHopDevTable)
+    {
+        FlowKey key = flow.first;
+        Ptr<NetDevice> device = flow.second;
+
+        // Get the bytes for this flow from m_flowBytesOnNodeTable
+        auto bytesIt = m_flowBytesOnNodeTable.find(key);
+        if (bytesIt != m_flowBytesOnNodeTable.end())
+        {
+            // Add this flow and its bytes to the corresponding device's map
+            deviceFlows[device][key] = bytesIt->second;
+        }
+    }
+
+    std::cout << "deviceFlows size: " << deviceFlows.size() << std::endl;
+    // Iterate through each device and call SendCNCPReport
+    for (const auto& deviceFlow : deviceFlows)
+    {
+        Ptr<NetDevice> device = deviceFlow.first;
+        const auto& flows = deviceFlow.second;
+        std::cout << "flows size: " << flows.size() << std::endl;
+
+        // Cast to QbbNetDevice to call SendCNCPReport
+        Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
+        if (qbbDevice)
+        {
+            qbbDevice->SendCNCPReport(flows);
+        }
+    }
+}
+
+void
+SwitchNode::StartReportCNCP()
+{
+    // NS_LOG_DEBUG("StartReportCNCP");
+    // Check if there are any flows in the control rate table
+    if (!m_flowControlRateTable.empty())
+    {
+        std::cout << "not empty" << std::endl;
+        ReportCNCPStatus();
+    }
+
+    // Schedule the next report
+    Simulator::Schedule(NanoSeconds(m_cncp_report_interval), &SwitchNode::StartReportCNCP, this);
 }
 
 } /* namespace ns3 */

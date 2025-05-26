@@ -31,7 +31,7 @@ CncpControlHeader::CncpControlHeader ()
 {
 }
 
-CncpControlHeader::CncpControlHeader (uint32_t flowId, uint32_t flowInfo)
+CncpControlHeader::CncpControlHeader (uint32_t flowId, uint64_t flowInfo)
   : m_flow_id (flowId),
     m_flow_info (flowInfo)
 {
@@ -48,7 +48,7 @@ CncpControlHeader::SetFlowId (uint32_t flowId)
 }
 
 void
-CncpControlHeader::SetFlowInfo (uint32_t flowInfo)
+CncpControlHeader::SetFlowInfo (uint64_t flowInfo)
 {
   m_flow_info = flowInfo;
 }
@@ -59,7 +59,7 @@ CncpControlHeader::GetFlowId (void) const
   return m_flow_id;
 }
 
-uint32_t
+uint64_t
 CncpControlHeader::GetFlowInfo (void) const
 {
   return m_flow_info;

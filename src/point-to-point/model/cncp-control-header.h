@@ -42,16 +42,16 @@ class CncpControlHeader : public Header
 {
   public:
     CncpControlHeader();
-    CncpControlHeader(uint32_t flowId, uint32_t flowInfo);
+    CncpControlHeader(uint32_t flowId, uint64_t flowInfo);
     virtual ~CncpControlHeader();
 
     // Setters
     void SetFlowId(uint32_t flowId);
-    void SetFlowInfo(uint32_t flowInfo);
+    void SetFlowInfo(uint64_t flowInfo);
 
     // Getters
     uint32_t GetFlowId(void) const;
-    uint32_t GetFlowInfo(void) const;
+    uint64_t GetFlowInfo(void) const;
 
     static TypeId GetTypeId(void);
     virtual TypeId GetInstanceTypeId(void) const;
@@ -62,7 +62,7 @@ class CncpControlHeader : public Header
 
   private:
     uint32_t m_flow_id;
-    uint32_t m_flow_info;
+    uint64_t m_flow_info;
 };
 
 }; // namespace ns3

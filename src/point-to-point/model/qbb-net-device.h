@@ -31,7 +31,8 @@
 #include "ns3/rdma-queue-pair.h"
 #include "ns3/udp-header.h"
 #include <ns3/rdma.h>
-
+#include "ns3/cncp-flowkey.h"
+#include "ns3/cncp-control-header.h"
 #include <map>
 #include <vector>
 
@@ -45,8 +46,8 @@ class RdmaEgressQueue : public Object
     static uint32_t ack_q_idx;
     int m_qlast;
     uint32_t m_rrlast;
-    Ptr<DropTailQueue<Packet>> m_ackQ;       // highest priority queue
-    Ptr<RdmaQueuePairGroup> m_qpGrp; // queue pairs
+    Ptr<DropTailQueue<Packet>> m_ackQ; // highest priority queue
+    Ptr<RdmaQueuePairGroup> m_qpGrp;   // queue pairs
 
     // callback for get next packet
     typedef Callback<Ptr<Packet>, Ptr<RdmaQueuePair>> RdmaGetNxtPkt;
@@ -131,6 +132,8 @@ class QbbNetDevice : public PointToPointNetDevice
 
     void SendPfc(uint32_t qIndex, uint32_t type); // type: 0 = pause, 1 = resume
 
+    void SendCNCPReport(std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable);
+
     TracedCallback<Ptr<const Packet>, uint32_t> m_traceEnqueue;
     TracedCallback<Ptr<const Packet>, uint32_t> m_traceDequeue;
     TracedCallback<Ptr<const Packet>, uint32_t> m_traceDrop;
@@ -140,11 +143,14 @@ class QbbNetDevice : public PointToPointNetDevice
     Ptr<UniformRandomVariable> m_uv;
 
     // build for RDMA
-    DataRate GetDataRate(){
-      return m_bps;
+    DataRate GetDataRate()
+    {
+        return m_bps;
     }
-    bool IsQbb(){
-      return true;
+
+    bool IsQbb()
+    {
+        return true;
     }
 
   protected:
