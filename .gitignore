@@ -100,7 +100,7 @@ ehthumbs.db
 Thumbs.db 
 
 # VSCode
-.vscode/*
+.vscode
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
