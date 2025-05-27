@@ -131,6 +131,11 @@ public:
 		  uint32_t qlen;
 		  uint8_t qIndex;
 	  } pfc;
+	  // CncpControlHeader
+	  struct {
+		  uint32_t flowId;
+		  uint64_t flowInfo;
+	  } cncp;
   };
 
   uint8_t GetIpv4EcnBits (void) const;
