@@ -11,5 +11,5 @@ Hence, I moved it to the ns3-3.44 version, which is the latest one in 2025.05.
 ## Run
 
 ```
-./ns3 run -- scratch/third -- mix/config.txt
+./ns3 run scratch/third -- mix/config.txt
 ```
