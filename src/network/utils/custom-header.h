@@ -133,7 +133,11 @@ public:
 	  } pfc;
 	  // CncpControlHeader
 	  struct {
-		  uint32_t flowId;
+		  uint32_t sip;
+		  uint32_t dip;
+		  uint16_t sport;
+		  uint16_t dport;
+		  uint8_t protocol;
 		  uint64_t flowInfo;
 	  } cncp;
   };
