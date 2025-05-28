@@ -151,7 +151,7 @@ CncpControlHeader::Print (std::ostream &os) const
 uint32_t
 CncpControlHeader::GetSerializedSize (void) const
 {
-  return 20; // 4 bytes for sip + 4 bytes for dip + 2 bytes for sport + 2 bytes for dport + 1 byte for protocol + 8 bytes for flow_info
+  return 21; // 4 bytes for sip + 4 bytes for dip + 2 bytes for sport + 2 bytes for dport + 1 byte for protocol + 8 bytes for flow_info
 }
 
 void
