@@ -5,7 +5,6 @@
 #include "qbb-net-device.h"
 #include "switch-mmu.h"
 
-#include "ns3/cncp-flowkey.h"
 #include <ns3/node.h>
 
 #include <unordered_map>
@@ -36,14 +35,16 @@ class SwitchNode : public Node
     // Flow control table for CNCP, key is flow id and value is target flow rate
     // for iterative update
     uint64_t m_cncp_report_interval = 1000; // 0.001ms
-    std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable;
+    std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNextNodeTable; // used for CNCP update
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable;
+    const uint64_t m_default_flow_capacity_on_node = 10000; // default flow capacity on node, also called user queue capacity in the CNCP paper.
     uint32_t m_gamma = 0.1;
-    uint32_t m_lambda = 0.1;
+    uint32_t m_lambda = 1e9;
     // for flow rate control
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowControlRateTable;
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowControlRateTable; // flow rate, in bytes per second
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowIngressWindowTable;
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowLastPktTsTable;
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable;
 
   protected:
     bool m_ecnEnabled;
@@ -87,6 +88,8 @@ class SwitchNode : public Node
     void CNCPNotifyEgress(Ptr<Packet> packet);
     void StartReportCNCP();
     void ReportCNCPStatus();
+    void CNCPUpdate();
+    uint64_t CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u);
 };
 
 } /* namespace ns3 */

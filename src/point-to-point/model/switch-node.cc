@@ -262,7 +262,20 @@ SwitchNode::ClearTable()
 bool
 SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader& ch)
 {
-    SendToDev(device, packet, ch);
+    if (ch.l3Prot == 0xFB)
+    {
+        std::cout << "CNCP packet received at switch " << GetId() << std::endl;
+        std::cout << "source ip: " << ch.cncp.sip << std::endl;
+        std::cout << "destination ip: " << ch.cncp.dip << std::endl;
+        std::cout << "source port: " << ch.cncp.sport << std::endl;
+        std::cout << "destination port: " << ch.cncp.dport << std::endl;
+        std::cout << "protocol: " << ch.cncp.protocol << std::endl;
+        std::cout << "flow info: " << ch.cncp.flowInfo << std::endl;
+    }
+    else
+    {
+        SendToDev(device, packet, ch);
+    }
     return true;
 }
 
@@ -555,6 +568,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         m_flowControlRateTable[key] = flowRate;
         m_flowBytesOnNodeTable[key] = 0;
         m_flowPrevHopDevTable[key] = input_device;
+        m_flowBytesOnNextNodeTable[key] = 0;
     }
 
     m_flowBytesOnNodeTable[key] += packet->GetSize();
@@ -617,6 +631,7 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
         }
         m_flowControlRateTable.erase(key);
         m_flowPrevHopDevTable.erase(key);
+        m_flowBytesOnNextNodeTable.erase(key);
     }
 
     return;
@@ -645,13 +660,11 @@ SwitchNode::ReportCNCPStatus()
         }
     }
 
-    std::cout << "deviceFlows size: " << deviceFlows.size() << std::endl;
     // Iterate through each device and call SendCNCPReport
     for (const auto& deviceFlow : deviceFlows)
     {
         Ptr<NetDevice> device = deviceFlow.first;
         const auto& flows = deviceFlow.second;
-        std::cout << "flows size: " << flows.size() << std::endl;
 
         // Cast to QbbNetDevice to call SendCNCPReport
         Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
@@ -669,12 +682,60 @@ SwitchNode::StartReportCNCP()
     // Check if there are any flows in the control rate table
     if (!m_flowControlRateTable.empty())
     {
-        std::cout << "not empty" << std::endl;
         ReportCNCPStatus();
+        CNCPUpdate();
     }
 
     // Schedule the next report
     Simulator::Schedule(NanoSeconds(m_cncp_report_interval), &SwitchNode::StartReportCNCP, this);
+}
+
+void
+SwitchNode::CNCPUpdate()
+{
+    // Iterate through all flows in the control rate table
+    for (auto& flow : m_flowControlRateTable)
+    {
+        FlowKey key = flow.first;
+        uint64_t f_e = flow.second;
+
+        // Get q_v from m_flowBytesOnNextNodeTable
+        uint64_t q_v = m_flowBytesOnNextNodeTable[key];
+
+        // Get q_u from m_flowBytesOnNodeTable
+        uint64_t q_u = m_flowBytesOnNodeTable[key];
+
+        // p_e(t) and q_u^i(t) are set to 0 for now (can be extended later)
+        // look up entries
+        uint64_t p_e = 0;
+        auto entry = m_rtTable.find(key.dip);
+        if (entry != m_rtTable.end())
+        {
+            p_e = entry->second[0]; // TODO: the average queue length of all possible next hops
+        }
+
+        // Get the flow rate for the next iteration
+        uint64_t f_e_new = CNCPGetNextIteration(f_e, q_v, p_e, q_u);
+
+        // Update the flow rate in the table
+        flow.second = f_e_new;
+
+        // Print flow rate before and after update
+        NS_LOG_DEBUG("CNCPUpdate: key=(" << key.sip << ", " << key.dip << ", " << key.sport << ", "
+                                         << key.dport << ", " << key.protocol << "), oldRate=" << f_e
+                                         << ", newRate=" << f_e_new);
+    }
+}
+
+uint64_t
+SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u)
+{
+    // Compute the derivative of the utility function U'(f_e^i(t))
+    // Here we use U'(x) = 1/x
+    double U_prime = m_lambda / (f_e > 0 ? f_e : 1e-6); // avoid division by zero
+
+    int64_t result = f_e + m_gamma * (q_v + m_lambda * U_prime - p_e - q_u);
+    return result > 0 ? static_cast<uint64_t>(result) : 0;
 }
 
 } /* namespace ns3 */
