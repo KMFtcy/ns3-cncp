@@ -512,9 +512,6 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
             Resume(qIndex);
         }
     }
-    else if (ch.l3Prot == 0xFB){
-        std::cout << "receive CNCP report" << std::endl;
-    }
     else
     { // non-PFC packets (data, ACK, NACK, CNP...)
         if (GetNode()->GetNodeType() > 0)
@@ -715,10 +712,8 @@ QbbNetDevice::SendCNCPReport(
 
     for (const auto& flow : m_flowBytesOnNodeTable)
     {
-        uint32_t flow_id = hasher(flow.first);
-
         Ptr<Packet> p = Create<Packet>(0);
-        CncpControlHeader cncp_ch(flow_id, flow.second);
+        CncpControlHeader cncp_ch(flow.first.sip, flow.first.dip, flow.first.sport, flow.first.dport, flow.first.protocol, flow.second);
         p->AddHeader(cncp_ch);
         Ipv4Header ipv4h; // Prepare IPv4 header
         ipv4h.SetProtocol(0xFB);
