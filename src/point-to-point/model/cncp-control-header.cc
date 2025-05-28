@@ -26,13 +26,21 @@ namespace ns3 {
 NS_OBJECT_ENSURE_REGISTERED (CncpControlHeader);
 
 CncpControlHeader::CncpControlHeader ()
-  : m_flow_id (0),
+  : m_sip (0),
+    m_dip (0),
+    m_sport (0),
+    m_dport (0),
+    m_protocol (0),
     m_flow_info (0)
 {
 }
 
-CncpControlHeader::CncpControlHeader (uint32_t flowId, uint64_t flowInfo)
-  : m_flow_id (flowId),
+CncpControlHeader::CncpControlHeader (uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint8_t protocol, uint64_t flowInfo)
+  : m_sip (sip),
+    m_dip (dip),
+    m_sport (sport),
+    m_dport (dport),
+    m_protocol (protocol),
     m_flow_info (flowInfo)
 {
 }
@@ -42,9 +50,33 @@ CncpControlHeader::~CncpControlHeader ()
 }
 
 void
-CncpControlHeader::SetFlowId (uint32_t flowId)
+CncpControlHeader::SetSourceIp (uint32_t sip)
 {
-  m_flow_id = flowId;
+  m_sip = sip;
+}
+
+void
+CncpControlHeader::SetDestIp (uint32_t dip)
+{
+  m_dip = dip;
+}
+
+void
+CncpControlHeader::SetSourcePort (uint16_t sport)
+{
+  m_sport = sport;
+}
+
+void
+CncpControlHeader::SetDestPort (uint16_t dport)
+{
+  m_dport = dport;
+}
+
+void
+CncpControlHeader::SetProtocol (uint8_t protocol)
+{
+  m_protocol = protocol;
 }
 
 void
@@ -54,9 +86,33 @@ CncpControlHeader::SetFlowInfo (uint64_t flowInfo)
 }
 
 uint32_t
-CncpControlHeader::GetFlowId (void) const
+CncpControlHeader::GetSourceIp (void) const
 {
-  return m_flow_id;
+  return m_sip;
+}
+
+uint32_t
+CncpControlHeader::GetDestIp (void) const
+{
+  return m_dip;
+}
+
+uint16_t
+CncpControlHeader::GetSourcePort (void) const
+{
+  return m_sport;
+}
+
+uint16_t
+CncpControlHeader::GetDestPort (void) const
+{
+  return m_dport;
+}
+
+uint8_t
+CncpControlHeader::GetProtocol (void) const
+{
+  return m_protocol;
 }
 
 uint64_t
@@ -84,26 +140,39 @@ CncpControlHeader::GetInstanceTypeId (void) const
 void
 CncpControlHeader::Print (std::ostream &os) const
 {
-  os << "flow_id=" << m_flow_id << ", flow_info=" << m_flow_info;
+  os << "sip=" << m_sip 
+     << ", dip=" << m_dip
+     << ", sport=" << m_sport
+     << ", dport=" << m_dport
+     << ", protocol=" << (uint32_t)m_protocol
+     << ", flow_info=" << m_flow_info;
 }
 
 uint32_t
 CncpControlHeader::GetSerializedSize (void) const
 {
-  return 12; // 4 bytes for flow_id + 8 bytes for flow_info
+  return 20; // 4 bytes for sip + 4 bytes for dip + 2 bytes for sport + 2 bytes for dport + 1 byte for protocol + 8 bytes for flow_info
 }
 
 void
 CncpControlHeader::Serialize (Buffer::Iterator start) const
 {
-  start.WriteU32 (m_flow_id);
+  start.WriteU32 (m_sip);
+  start.WriteU32 (m_dip);
+  start.WriteU16 (m_sport);
+  start.WriteU16 (m_dport);
+  start.WriteU8 (m_protocol);
   start.WriteU64 (m_flow_info);
 }
 
 uint32_t
 CncpControlHeader::Deserialize (Buffer::Iterator start)
 {
-  m_flow_id = start.ReadU32 ();
+  m_sip = start.ReadU32 ();
+  m_dip = start.ReadU32 ();
+  m_sport = start.ReadU16 ();
+  m_dport = start.ReadU16 ();
+  m_protocol = start.ReadU8 ();
   m_flow_info = start.ReadU64 ();
   return GetSerializedSize ();
 }
