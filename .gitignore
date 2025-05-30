@@ -106,4 +106,8 @@ Thumbs.db
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# config
+.runtime_config/
+
+# logs
 mix.tr
