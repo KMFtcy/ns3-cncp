@@ -88,6 +88,7 @@ class SwitchNode : public Node
     void CNCPNotifyEgress(Ptr<Packet> packet);
     void StartReportCNCP();
     void ReportCNCPStatus();
+    void CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo);
     void CNCPUpdate();
     uint64_t CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u);
 };

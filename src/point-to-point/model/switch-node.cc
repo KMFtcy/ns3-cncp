@@ -76,8 +76,6 @@ SwitchNode::SwitchNode()
     {
         m_u[i] = 0;
     }
-
-    StartReportCNCP();
 }
 
 int
@@ -264,13 +262,20 @@ SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, C
 {
     if (ch.l3Prot == 0xFB)
     {
-        std::cout << "CNCP packet received at switch " << GetId() << std::endl;
-        std::cout << "source ip: " << ch.cncp.sip << std::endl;
-        std::cout << "destination ip: " << ch.cncp.dip << std::endl;
-        std::cout << "source port: " << ch.cncp.sport << std::endl;
-        std::cout << "destination port: " << ch.cncp.dport << std::endl;
-        std::cout << "protocol: " << ch.cncp.protocol << std::endl;
-        std::cout << "flow info: " << ch.cncp.flowInfo << std::endl;
+        // std::cout << "CNCP packet received at switch " << GetId() << std::endl;
+        // std::cout << "source ip: " << ch.cncp.sip << std::endl;
+        // std::cout << "destination ip: " << ch.cncp.dip << std::endl;
+        // std::cout << "source port: " << ch.cncp.sport << std::endl;
+        // std::cout << "destination port: " << ch.cncp.dport << std::endl;
+        // std::cout << "protocol: " << ch.cncp.protocol << std::endl;
+        // std::cout << "flow info: " << ch.cncp.flowInfo << std::endl;
+        FlowKey key;
+        key.sip = ch.cncp.sip;
+        key.dip = ch.cncp.dip;
+        key.sport = ch.cncp.sport;
+        key.dport = ch.cncp.dport;
+        key.protocol = ch.cncp.protocol;
+        CNCPUpdateFromReport(key, ch.cncp.flowInfo);
     }
     else
     {
@@ -640,7 +645,6 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
 void
 SwitchNode::ReportCNCPStatus()
 {
-    std::cout << "ReportCNCPStatus" << std::endl;
     // Create a map to store flows grouped by device
     std::unordered_map<Ptr<NetDevice>, std::unordered_map<FlowKey, uint64_t, FlowKeyHash>>
         deviceFlows;
@@ -700,10 +704,10 @@ SwitchNode::CNCPUpdate()
         uint64_t f_e = flow.second;
 
         // Get q_v from m_flowBytesOnNextNodeTable
-        uint64_t q_v = m_flowBytesOnNextNodeTable[key];
+        uint64_t q_v = m_default_flow_capacity_on_node - m_flowBytesOnNextNodeTable[key];
 
         // Get q_u from m_flowBytesOnNodeTable
-        uint64_t q_u = m_flowBytesOnNodeTable[key];
+        uint64_t q_u = m_default_flow_capacity_on_node - m_flowBytesOnNodeTable[key];
 
         // p_e(t) and q_u^i(t) are set to 0 for now (can be extended later)
         // look up entries
@@ -736,6 +740,12 @@ SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint6
 
     int64_t result = f_e + m_gamma * (q_v + m_lambda * U_prime - p_e - q_u);
     return result > 0 ? static_cast<uint64_t>(result) : 0;
+}
+
+void
+SwitchNode::CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo)
+{
+    m_flowBytesOnNextNodeTable[key] = flowInfo;
 }
 
 } /* namespace ns3 */
