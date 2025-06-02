@@ -68,6 +68,7 @@ bool multi_rate = true;
 bool sample_feedback = false;
 double pint_log_base = 1.05;
 double pint_prob = 1.0;
+bool use_coding_transport = false;
 double u_target = 0.95;
 uint32_t int_multi = 1;
 bool rate_bound = true;
@@ -1001,6 +1002,11 @@ main(int argc, char* argv[])
                 conf >> pint_prob;
                 std::cout << "PINT_PROB\t\t\t\t" << pint_prob << '\n';
             }
+            else if (key.compare("USE_CODING_TRANSPORT") == 0)
+            {
+                conf >> use_coding_transport;
+                std::cout << "USE_CODING_TRANSPORT\t\t\t\t" << use_coding_transport << '\n';
+            }
             fflush(stdout);
         }
         conf.close();
@@ -1242,6 +1248,7 @@ main(int argc, char* argv[])
             // create RdmaHw
             Ptr<RdmaHw> rdmaHw = CreateObject<RdmaHw>();
             rdmaHw->SetAttribute("ClampTargetRate", BooleanValue(clamp_target_rate));
+            rdmaHw->SetAttribute("CodingTransport", BooleanValue(use_coding_transport));
             rdmaHw->SetAttribute("AlphaResumInterval", DoubleValue(alpha_resume_interval));
             rdmaHw->SetAttribute("RPTimer", DoubleValue(rp_timer));
             rdmaHw->SetAttribute("FastRecoveryTimes", UintegerValue(fast_recovery_times));
@@ -1338,6 +1345,10 @@ main(int argc, char* argv[])
             Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
             sw->SetAttribute("CcMode", UintegerValue(cc_mode));
             sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
+            if (cc_mode == 11)
+            {
+                sw->StartReportCNCP();
+            }
         }
     }
 
