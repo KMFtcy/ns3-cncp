@@ -591,7 +591,7 @@ int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
 	// 	HandleAckHpPint(qp, p, ch);
 	// }
 	// ACK may advance the on-the-fly window, allowing more packets to send
-	// dev->TriggerTransmit();
+	dev->TriggerTransmit();
 	return 0;
 }
 
