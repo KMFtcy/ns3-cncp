@@ -148,6 +148,11 @@ class QbbNetDevice : public PointToPointNetDevice
         return m_bps;
     }
 
+    uint32_t GetQueueLength(uint32_t qIndex)
+    {
+        return m_queue->GetNBytes(qIndex);
+    }
+
     bool IsQbb()
     {
         return true;

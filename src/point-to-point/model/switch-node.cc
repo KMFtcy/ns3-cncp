@@ -718,9 +718,33 @@ SwitchNode::CNCPUpdate()
         auto entry = m_rtTable.find(key.dip);
         if (entry != m_rtTable.end())
         {
-            uint32_t dev_idx = entry->second[0]; // TODO: the average queue length of all possible next hops
-            Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
-            // p_e = device->G;
+            // Create a dummy packet for GetOutDev
+            Ptr<Packet> dummyPacket = Create<Packet>();
+            
+            // Create and setup CustomHeader
+            CustomHeader ch;
+            ch.sip = key.sip;
+            ch.dip = key.dip;
+            ch.l3Prot = key.protocol;
+            
+            // Set protocol specific fields
+            if (key.protocol == 0x6) { // TCP
+                ch.tcp.sport = key.sport;
+                ch.tcp.dport = key.dport;
+            } else if (key.protocol == 0x11) { // UDP
+                ch.udp.sport = key.sport;
+                ch.udp.dport = key.dport;
+                ch.udp.pg = key.priority_group;
+            } else if (key.protocol == 0xFC || key.protocol == 0xFD) { // ACK/NACK
+                ch.ack.sport = key.sport;
+                ch.ack.dport = key.dport;
+            }
+            // Get the output device index
+            int dev_idx = GetOutDev(dummyPacket, ch);
+            if (dev_idx >= 0) {
+                Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
+                p_e = m_default_flow_capacity_on_node - device->GetQueueLength(key.priority_group);
+            }
         }
 
         // Get the flow rate for the next iteration
