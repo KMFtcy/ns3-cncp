@@ -275,6 +275,7 @@ SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, C
         key.sport = ch.cncp.sport;
         key.dport = ch.cncp.dport;
         key.protocol = ch.cncp.protocol;
+        key.priority_group = ch.udp.pg;
         CNCPUpdateFromReport(key, ch.cncp.flowInfo);
     }
     else
@@ -478,6 +479,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
     key.sport = sport;
     key.dport = dport;
     key.protocol = protocol;
+    key.priority_group = ch.udp.pg;
     // check if flow is already in the table
     auto it = m_flowControlRateTable.find(key);
     // admission control to simulate flow control
@@ -537,6 +539,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     key.sport = sport;
     key.dport = dport;
     key.protocol = protocol;
+    key.priority_group = ch.udp.pg;
     // check if flow is already in the table
     auto it = m_flowControlRateTable.find(key);
     // admission control to simulate flow control
@@ -613,7 +616,7 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
     key.sport = sport;
     key.dport = dport;
     key.protocol = protocol;
-
+    key.priority_group = ch.udp.pg;
     // reduce flow bytes on node
     m_flowBytesOnNodeTable[key] -= packet->GetSize();
 
@@ -715,7 +718,9 @@ SwitchNode::CNCPUpdate()
         auto entry = m_rtTable.find(key.dip);
         if (entry != m_rtTable.end())
         {
-            p_e = entry->second[0]; // TODO: the average queue length of all possible next hops
+            uint32_t dev_idx = entry->second[0]; // TODO: the average queue length of all possible next hops
+            Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
+            // p_e = device->G;
         }
 
         // Get the flow rate for the next iteration
