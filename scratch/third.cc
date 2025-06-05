@@ -216,7 +216,7 @@ qp_finish(FILE* fout, Ptr<RdmaQueuePair> q)
                          IntHeader::GetStaticSize()); // translate to the minimum bytes required
                                                       // (with header but no INT)
     uint64_t standalone_fct = base_rtt + total_bytes * 8000000000lu / b;
-    // sip, dip, sport, dport, size (B), start_time, fct (ns), standalone_fct (ns)
+    // sip, dip, sport, dport,  priority group, size (B), start_time, fct (ns), standalone_fct (ns)
     fprintf(fout,
             "%08x %08x %u %u %lu %lu %lu %lu %lu\n",
             q->sip.Get(),
