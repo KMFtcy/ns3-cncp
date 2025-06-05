@@ -218,11 +218,12 @@ qp_finish(FILE* fout, Ptr<RdmaQueuePair> q)
     uint64_t standalone_fct = base_rtt + total_bytes * 8000000000lu / b;
     // sip, dip, sport, dport, size (B), start_time, fct (ns), standalone_fct (ns)
     fprintf(fout,
-            "%08x %08x %u %u %lu %lu %lu %lu\n",
+            "%08x %08x %u %u %lu %lu %lu %lu %lu\n",
             q->sip.Get(),
             q->dip.Get(),
             q->sport,
             q->dport,
+            q->m_pg,
             q->m_size,
             q->startTime.GetTimeStep(),
             (Simulator::Now() - q->startTime).GetTimeStep(),
