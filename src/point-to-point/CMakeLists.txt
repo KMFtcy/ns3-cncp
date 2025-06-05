@@ -35,6 +35,7 @@ build_lib(
     model/rdma-hw.cc
     model/switch-mmu.cc
     model/switch-node.cc
+    model/cncp-control-header.cc
   HEADER_FILES
     ${mpi_headers}
     helper/point-to-point-helper.h
@@ -54,6 +55,7 @@ build_lib(
     model/rdma-hw.h
     model/switch-mmu.h
     model/switch-node.h
+    model/cncp-control-header.h
   LIBRARIES_TO_LINK ${libnetwork}
                     ${libinternet}
                     ${mpi_libraries}

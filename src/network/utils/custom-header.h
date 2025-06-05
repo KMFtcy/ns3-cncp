@@ -131,6 +131,15 @@ public:
 		  uint32_t qlen;
 		  uint8_t qIndex;
 	  } pfc;
+	  // CncpControlHeader
+	  struct {
+		  uint32_t sip;
+		  uint32_t dip;
+		  uint16_t sport;
+		  uint16_t dport;
+		  uint8_t protocol;
+		  uint64_t flowInfo;
+	  } cncp;
   };
 
   uint8_t GetIpv4EcnBits (void) const;
@@ -143,4 +152,3 @@ public:
 
 
 #endif /* CUSTOM_HEADER_H */
-

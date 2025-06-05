@@ -15,9 +15,12 @@
 #include "ns3/uinteger.h"
 
 #include <cmath>
+#include <iostream>
+#include <unordered_map>
 
 namespace ns3
 {
+
 NS_LOG_COMPONENT_DEFINE("SwitchNode");
 
 TypeId
@@ -76,6 +79,9 @@ SwitchNode::SwitchNode()
     {
         m_u[i] = 0;
     }
+
+    // start report cncp
+    // StartReportCNCP();
 }
 
 int
@@ -178,10 +184,10 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
                 return; // Drop
             }
             // If packet go through ACL, notify CNCP flow control
-            if (m_ccMode == 11)
-            {
-                CNCPNotifyIngress(p, ch, idx, input_device);
-            }
+            // if (m_ccMode == 11)
+            // {
+            //     CNCPNotifyIngress(p, ch, idx, input_device);
+            // }
             CheckAndSendPfc(inDev, qIndex);
         }
         m_bytes[inDev][idx][qIndex] += p->GetSize();
@@ -258,30 +264,49 @@ SwitchNode::ClearTable()
 
 // This function can only be called in switch mode
 bool
-SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, CustomHeader& ch)
+SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> input_device, Ptr<Packet> packet, CustomHeader& ch)
 {
+    std::cout << "SwitchReceiveFromDevice" << std::endl;
+    // CNCP report from previous hop
     if (ch.l3Prot == 0xFB)
     {
-        // std::cout << "CNCP packet received at switch " << GetId() << std::endl;
-        // std::cout << "source ip: " << ch.cncp.sip << std::endl;
-        // std::cout << "destination ip: " << ch.cncp.dip << std::endl;
-        // std::cout << "source port: " << ch.cncp.sport << std::endl;
-        // std::cout << "destination port: " << ch.cncp.dport << std::endl;
-        // std::cout << "protocol: " << ch.cncp.protocol << std::endl;
-        // std::cout << "flow info: " << ch.cncp.flowInfo << std::endl;
-        FlowKey key;
-        key.sip = ch.cncp.sip;
-        key.dip = ch.cncp.dip;
-        key.sport = ch.cncp.sport;
-        key.dport = ch.cncp.dport;
-        key.protocol = ch.cncp.protocol;
-        CNCPUpdateFromReport(key, ch.cncp.flowInfo);
+        std::cout << "CNCP report" << std::endl;
+        // size_t flow_count = ch.flowInfos.size();
+        // for (size_t i = 0; i < flow_count; i++) {
+        //     // extract flow info from CNCP report
+        //     FlowInfo flow_info = ch.flowInfos[i];
+        //     uint32_t sip = flow_info.srcIp;
+        //     uint32_t dip = flow_info.dstIp;
+        //     uint16_t sport = flow_info.srcPort;
+        //     uint16_t dport = flow_info.dstPort;
+        //     uint8_t protocol = flow_info.protocol;
+        //     uint32_t q_v_t = flow_info.flowInfo;
+        //     // indicate key
+        //     FlowKey key;
+        //     key.sip = sip;
+        //     key.dip = dip;
+        //     key.sport = sport;
+        //     key.dport = dport;
+        //     key.protocol = protocol;
+        //     // get bytes on output device's queue
+        //     int idx = GetOutDev(packet, ch);
+        //     Ptr<NetDevice> output_device = m_devices[idx];
+        //     Ptr<QbbNetDevice> output_qbb_device = DynamicCast<QbbNetDevice>(output_device);
+        //     uint32_t p_t = output_qbb_device->m_queue->m_queues[3]->GetNBytes();
+
+        //     uint64_t new_f = m_flowControlRateTable[key] + m_gamma * (q_v_t + m_lambda * (1/m_flowControlRateTable[key]) - p_t - m_flowBytesOnNodeTable[key]);
+        //     if (new_f < 0) {
+        //         new_f = 0;
+        //     }
+        //     m_flowControlRateTable[key] = new_f;
+        // }
     }
     else
     {
-        SendToDev(device, packet, ch);
+        std::cout << "Send to dev" << std::endl;
+        SendToDev(input_device, packet, ch);
     }
-    return true;
+    std::cout << "SwitchReceiveFromDevice done" << std::endl;
 }
 
 void
@@ -310,10 +335,10 @@ SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p
             }
         }
         // CheckAndSendPfc(inDev, qIndex);
-        if (m_ccMode == 11)
-        {
-            CNCPNotifyEgress(p);
-        }
+        // if (m_ccMode == 11)
+        // {
+        //     CNCPNotifyEgress(p);
+        // }
         CheckAndSendResume(inDev, qIndex);
     }
     if (1)
@@ -492,6 +517,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t bytesWindow = m_flowIngressWindowTable[key] + flowRate * dt;
         if (bytesWindow < packetSize)
         {
+            NS_LOG_DEBUG("Admit: packet drop");
             return false;
         }
         else
@@ -505,247 +531,191 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
     }
 }
 
-void
-SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
-                              CustomHeader& ch,
-                              uint32_t output_dev_idx,
-                              Ptr<NetDevice> input_device)
-{
-    // obtain flow key from custom header
-    uint32_t sip = ch.sip;
-    uint32_t dip = ch.dip;
-    uint16_t sport = 0, dport = 0;
-    uint8_t protocol = ch.l3Prot;
-    if (ch.l3Prot == 0x6)
-    { // TCP
-        sport = ch.tcp.sport;
-        dport = ch.tcp.dport;
-    }
-    else if (ch.l3Prot == 0x11)
-    { // UDP
-        sport = ch.udp.sport;
-        dport = ch.udp.dport;
-    }
-    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
-    { // ACK/NACK
-        sport = ch.ack.sport;
-        dport = ch.ack.dport;
-    }
-    FlowKey key;
-    key.sip = sip;
-    key.dip = dip;
-    key.sport = sport;
-    key.dport = dport;
-    key.protocol = protocol;
-    // check if flow is already in the table
-    auto it = m_flowControlRateTable.find(key);
-    // admission control to simulate flow control
-    if (it != m_flowControlRateTable.end())
-    { // flow is already in the table, update ingress bytes window and last packet timestamp
-        uint64_t flowRate = it->second;
-        uint64_t packetSize = packet->GetSize();
-        // get timestamp of the last packet
-        uint64_t lastPktTs = m_flowLastPktTsTable[key];
-        uint64_t currentTs = Simulator::Now().GetTimeStep();
-        uint64_t dt = currentTs - lastPktTs;
-        // update ingress bytes window
-        m_flowIngressWindowTable[key] = m_flowIngressWindowTable[key] + flowRate * dt - packetSize;
-        // update last packet timestamp
-        m_flowLastPktTsTable[key] = currentTs;
-    }
-    else
-    { // flow is not in the table, means new flow arrives, reallocate flow rate
-        uint64_t currentTs = Simulator::Now().GetTimeStep();
-        m_flowIngressWindowTable[key] = 0;
-        m_flowLastPktTsTable[key] = currentTs;
-        // reallocate flow rate
-        size_t activeFlowCount = m_flowControlRateTable.size();
-        m_flowControlRateTable[key] = 0;
-        // get device rate
-        Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[output_dev_idx]);
-        uint64_t totalRate = device->GetDataRate().GetBitRate();
-        // reallocate flow rate
-        uint64_t flowRate = totalRate / (activeFlowCount + 1);
-        for (auto& it : m_flowControlRateTable)
-        {
-            it.second = flowRate;
-        }
-        m_flowControlRateTable[key] = flowRate;
-        m_flowBytesOnNodeTable[key] = 0;
-        m_flowPrevHopDevTable[key] = input_device;
-        m_flowBytesOnNextNodeTable[key] = 0;
-    }
+// void
+// SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
+//                               CustomHeader& ch,
+//                               uint32_t output_dev_idx,
+//                               Ptr<NetDevice> input_device)
+// {
+//     // obtain flow key from custom header
+//     uint32_t sip = ch.sip;
+//     uint32_t dip = ch.dip;
+//     uint16_t sport = 0, dport = 0;
+//     uint8_t protocol = ch.l3Prot;
+//     if (ch.l3Prot == 0x6)
+//     { // TCP
+//         sport = ch.tcp.sport;
+//         dport = ch.tcp.dport;
+//     }
+//     else if (ch.l3Prot == 0x11)
+//     { // UDP
+//         sport = ch.udp.sport;
+//         dport = ch.udp.dport;
+//     }
+//     else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+//     { // ACK/NACK
+//         sport = ch.ack.sport;
+//         dport = ch.ack.dport;
+//     }
+//     FlowKey key;
+//     key.sip = sip;
+//     key.dip = dip;
+//     key.sport = sport;
+//     key.dport = dport;
+//     key.protocol = protocol;
+//     // check if flow is already in the table
+//     auto it = m_flowControlRateTable.find(key);
+//     // admission control to simulate flow control
+//     if (it != m_flowControlRateTable.end())
+//     { // flow is already in the table, update ingress bytes window and last packet timestamp
+//         uint64_t flowRate = it->second;
+//         uint64_t packetSize = packet->GetSize();
+//         // get timestamp of the last packet
+//         uint64_t lastPktTs = m_flowLastPktTsTable[key];
+//         uint64_t currentTs = Simulator::Now().GetTimeStep();
+//         uint64_t dt = currentTs - lastPktTs;
+//         // update ingress bytes window
+//         m_flowIngressWindowTable[key] = m_flowIngressWindowTable[key] + flowRate * dt - packetSize;
+//         // update last packet timestamp
+//         m_flowLastPktTsTable[key] = currentTs;
+//     }
+//     else
+//     { // flow is not in the table, means new flow arrives, reallocate flow rate
+//         uint64_t currentTs = Simulator::Now().GetTimeStep();
+//         m_flowIngressWindowTable[key] = 0;
+//         m_flowLastPktTsTable[key] = currentTs;
+//         // reallocate flow rate
+//         size_t activeFlowCount = m_flowControlRateTable.size();
+//         m_flowControlRateTable[key] = 0;
+//         // get device rate
+//         Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[output_dev_idx]);
+//         uint64_t totalRate = device->GetDataRate().GetBitRate();
+//         // reallocate flow rate
+//         uint64_t flowRate = totalRate / (activeFlowCount + 1);
+//         for (auto& it : m_flowControlRateTable)
+//         {
+//             it.second = flowRate;
+//         }
+//         m_flowControlRateTable[key] = flowRate;
+//         m_flowBytesOnNodeTable[key] = 0;
+//         // m_flowPrevHopDevTable[key] = input_device;
+//     }
 
-    m_flowBytesOnNodeTable[key] += packet->GetSize();
+//     m_flowBytesOnNodeTable[key] += packet->GetSize();
 
-    return;
-}
+//     return;
+// }
 
-void
-SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
-{
-    // obtain flow key from custom header
-    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
-    ch.getInt = 1; // parse INT header
-    packet->PeekHeader(ch);
-    uint32_t sip = ch.sip;
-    uint32_t dip = ch.dip;
-    uint16_t sport = 0, dport = 0;
-    uint8_t protocol = ch.l3Prot;
-    if (ch.l3Prot == 0x6)
-    { // TCP
-        sport = ch.tcp.sport;
-        dport = ch.tcp.dport;
-    }
-    else if (ch.l3Prot == 0x11)
-    { // UDP
-        sport = ch.udp.sport;
-        dport = ch.udp.dport;
-    }
-    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
-    { // ACK/NACK
-        sport = ch.ack.sport;
-        dport = ch.ack.dport;
-    }
-    FlowKey key;
-    key.sip = sip;
-    key.dip = dip;
-    key.sport = sport;
-    key.dport = dport;
-    key.protocol = protocol;
+// void
+// SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
+// {
+//     NS_LOG_FUNCTION(this << packet);
+//     // obtain flow key from custom header
+//     CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+//     ch.getInt = 1; // parse INT header
+//     packet->PeekHeader(ch);
+//     uint32_t sip = ch.sip;
+//     uint32_t dip = ch.dip;
+//     uint16_t sport = 0, dport = 0;
+//     uint8_t protocol = ch.l3Prot;
+//     if (ch.l3Prot == 0x6)
+//     { // TCP
+//         sport = ch.tcp.sport;
+//         dport = ch.tcp.dport;
+//     }
+//     else if (ch.l3Prot == 0x11)
+//     { // UDP
+//         sport = ch.udp.sport;
+//         dport = ch.udp.dport;
+//     }
+//     else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
+//     { // ACK/NACK
+//         sport = ch.ack.sport;
+//         dport = ch.ack.dport;
+//     }
+//     FlowKey key;
+//     key.sip = sip;
+//     key.dip = dip;
+//     key.sport = sport;
+//     key.dport = dport;
+//     key.protocol = protocol;
 
-    // reduce flow bytes on node
-    m_flowBytesOnNodeTable[key] -= packet->GetSize();
+//     // reduce flow bytes on node
+//     m_flowBytesOnNodeTable[key] -= packet->GetSize();
 
-    // if flow leaves the node, remove it from the table
-    if (m_flowBytesOnNodeTable[key] == 0)
-    {
-        m_flowIngressWindowTable.erase(key);
-        m_flowLastPktTsTable.erase(key);
-        m_flowBytesOnNodeTable.erase(key);
-        // share this flow's rate with other flows
-        uint64_t rate = m_flowControlRateTable.erase(key);
-        size_t activeFlowCount = m_flowControlRateTable.size();
-        if (activeFlowCount > 1)
-        { // there are other flows on the node
-            uint64_t sharedRate = rate / (activeFlowCount - 1);
-            for (auto& it : m_flowControlRateTable)
-            {
-                it.second += sharedRate;
-            }
-        }
-        m_flowControlRateTable.erase(key);
-        m_flowPrevHopDevTable.erase(key);
-        m_flowBytesOnNextNodeTable.erase(key);
-    }
+//     // if flow leaves the node, remove it from the table
+//     if (m_flowBytesOnNodeTable[key] == 0)
+//     {
+//         NS_LOG_DEBUG("Egress: Flow leaves the node");
+//         m_flowIngressWindowTable.erase(key);
+//         m_flowLastPktTsTable.erase(key);
+//         m_flowBytesOnNodeTable.erase(key);
+//         // share this flow's rate with other flows
+//         uint64_t rate = m_flowControlRateTable.erase(key);
+//         size_t activeFlowCount = m_flowControlRateTable.size();
+//         if (activeFlowCount > 1)
+//         { // there are other flows on the node
+//             uint64_t sharedRate = rate / (activeFlowCount - 1);
+//             for (auto& it : m_flowControlRateTable)
+//             {
+//                 it.second += sharedRate;
+//             }
+//         }
+//         m_flowControlRateTable.erase(key);
+//         // m_flowPrevHopDevTable.erase(key);
+//     }
 
-    return;
-}
+//     return;
+// }
 
-void
-SwitchNode::ReportCNCPStatus()
-{
-    // Create a map to store flows grouped by device
-    std::unordered_map<Ptr<NetDevice>, std::unordered_map<FlowKey, uint64_t, FlowKeyHash>>
-        deviceFlows;
+// void
+// SwitchNode::ReportCNCPStatus()
+// {
+//     // Create a map to store flows grouped by device
+//     std::unordered_map<Ptr<NetDevice>, std::unordered_map<FlowKey, uint64_t, FlowKeyHash>>
+//         deviceFlows;
 
-    // Iterate through all flows in m_flowPrevHopDevTable
-    for (const auto& flow : m_flowPrevHopDevTable)
-    {
-        FlowKey key = flow.first;
-        Ptr<NetDevice> device = flow.second;
+//     // Iterate through all flows in m_flowPrevHopDevTable
+//     for (const auto& flow : m_flowPrevHopDevTable)
+//     {
+//         FlowKey key = flow.first;
+//         Ptr<NetDevice> device = flow.second;
 
-        // Get the bytes for this flow from m_flowBytesOnNodeTable
-        auto bytesIt = m_flowBytesOnNodeTable.find(key);
-        if (bytesIt != m_flowBytesOnNodeTable.end())
-        {
-            // Add this flow and its bytes to the corresponding device's map
-            deviceFlows[device][key] = bytesIt->second;
-        }
-    }
+//         // Get the bytes for this flow from m_flowBytesOnNodeTable
+//         auto bytesIt = m_flowBytesOnNodeTable.find(key);
+//         if (bytesIt != m_flowBytesOnNodeTable.end())
+//         {
+//             // Add this flow and its bytes to the corresponding device's map
+//             deviceFlows[device][key] = bytesIt->second;
+//         }
+//     }
 
-    // Iterate through each device and call SendCNCPReport
-    for (const auto& deviceFlow : deviceFlows)
-    {
-        Ptr<NetDevice> device = deviceFlow.first;
-        const auto& flows = deviceFlow.second;
+//     // Iterate through each device and call SendCNCPReport
+//     for (const auto& deviceFlow : deviceFlows)
+//     {
+//         Ptr<NetDevice> device = deviceFlow.first;
+//         const auto& flows = deviceFlow.second;
 
-        // Cast to QbbNetDevice to call SendCNCPReport
-        Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
-        if (qbbDevice)
-        {
-            qbbDevice->SendCNCPReport(flows);
-        }
-    }
-}
+//         // Cast to QbbNetDevice to call SendCNCPReport
+//         Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
+//         if (qbbDevice)
+//         {
+//             qbbDevice->SendCNCPReport(flows);
+//         }
+//     }
+// }
 
-void
-SwitchNode::StartReportCNCP()
-{
-    // NS_LOG_DEBUG("StartReportCNCP");
-    // Check if there are any flows in the control rate table
-    if (!m_flowControlRateTable.empty())
-    {
-        ReportCNCPStatus();
-        CNCPUpdate();
-    }
+// void
+// SwitchNode::StartReportCNCP()
+// {
+//     // Check if there are any flows in the control rate table
+//     if (!m_flowControlRateTable.empty())
+//     {
+//         ReportCNCPStatus();
+//     }
 
-    // Schedule the next report
-    Simulator::Schedule(NanoSeconds(m_cncp_report_interval), &SwitchNode::StartReportCNCP, this);
-}
-
-void
-SwitchNode::CNCPUpdate()
-{
-    // Iterate through all flows in the control rate table
-    for (auto& flow : m_flowControlRateTable)
-    {
-        FlowKey key = flow.first;
-        uint64_t f_e = flow.second;
-
-        // Get q_v from m_flowBytesOnNextNodeTable
-        uint64_t q_v = m_default_flow_capacity_on_node - m_flowBytesOnNextNodeTable[key];
-
-        // Get q_u from m_flowBytesOnNodeTable
-        uint64_t q_u = m_default_flow_capacity_on_node - m_flowBytesOnNodeTable[key];
-
-        // p_e(t) and q_u^i(t) are set to 0 for now (can be extended later)
-        // look up entries
-        uint64_t p_e = 0;
-        auto entry = m_rtTable.find(key.dip);
-        if (entry != m_rtTable.end())
-        {
-            p_e = entry->second[0]; // TODO: the average queue length of all possible next hops
-        }
-
-        // Get the flow rate for the next iteration
-        uint64_t f_e_new = CNCPGetNextIteration(f_e, q_v, p_e, q_u);
-
-        // Update the flow rate in the table
-        flow.second = f_e_new;
-
-        // Print flow rate before and after update
-        NS_LOG_DEBUG("CNCPUpdate: key=(" << key.sip << ", " << key.dip << ", " << key.sport << ", "
-                                         << key.dport << ", " << key.protocol << "), oldRate=" << f_e
-                                         << ", newRate=" << f_e_new);
-    }
-}
-
-uint64_t
-SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u)
-{
-    // Compute the derivative of the utility function U'(f_e^i(t))
-    // Here we use U'(x) = 1/x
-    double U_prime = m_lambda / (f_e > 0 ? f_e : 1e-6); // avoid division by zero
-
-    int64_t result = f_e + m_gamma * (q_v + m_lambda * U_prime - p_e - q_u);
-    return result > 0 ? static_cast<uint64_t>(result) : 0;
-}
-
-void
-SwitchNode::CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo)
-{
-    m_flowBytesOnNextNodeTable[key] = flowInfo;
-}
+//     // Schedule the next report
+//     Simulator::Schedule(NanoSeconds(m_cncp_report_interval), &SwitchNode::StartReportCNCP, this);
+// }
 
 } /* namespace ns3 */

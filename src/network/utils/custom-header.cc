@@ -100,6 +100,8 @@ uint32_t CustomHeader::GetSerializedSize (void) const{
 			len += 8;
 		else if (l3Prot == 0xFE)
 			len += 9;
+		else if (l3Prot == 0xFB) // CNCP
+			len += 21;
 	}
 	return len;
 }
@@ -179,6 +181,13 @@ void CustomHeader::Serialize (Buffer::Iterator start) const{
 		  i.WriteU32 (pfc.time);
 		  i.WriteU32 (pfc.qlen);
 		  i.WriteU8 (pfc.qIndex);
+	  }else if (l3Prot == 0xFB){ // CNCP
+		  i.WriteU32 (cncp.sip);
+		  i.WriteU32 (cncp.dip);
+		  i.WriteU16 (cncp.sport);
+		  i.WriteU16 (cncp.dport);
+		  i.WriteU8 (cncp.protocol);
+		  i.WriteU64 (cncp.flowInfo);
 	  }
   }
 }
@@ -318,6 +327,14 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 		  pfc.qlen = i.ReadU32 ();
 		  pfc.qIndex = i.ReadU8 ();
 		  l4Size = 9;
+	  }else if (l3Prot == 0xFB){ // CNCP
+		  cncp.sip = i.ReadU32 ();
+		  cncp.dip = i.ReadU32 ();
+		  cncp.sport = i.ReadU16 ();
+		  cncp.dport = i.ReadU16 ();
+		  cncp.protocol = i.ReadU8 ();
+		  cncp.flowInfo = i.ReadU64 ();
+		  l4Size = 21;
 	  }
   }
 

@@ -32,7 +32,7 @@
 #include "ns3/udp-header.h"
 #include <ns3/rdma.h>
 #include "ns3/cncp-flowkey.h"
-#include "ns3/cncp-control-header.h"
+
 #include <map>
 #include <vector>
 
@@ -46,8 +46,8 @@ class RdmaEgressQueue : public Object
     static uint32_t ack_q_idx;
     int m_qlast;
     uint32_t m_rrlast;
-    Ptr<DropTailQueue<Packet>> m_ackQ; // highest priority queue
-    Ptr<RdmaQueuePairGroup> m_qpGrp;   // queue pairs
+    Ptr<DropTailQueue<Packet>> m_ackQ;       // highest priority queue
+    Ptr<RdmaQueuePairGroup> m_qpGrp; // queue pairs
 
     // callback for get next packet
     typedef Callback<Ptr<Packet>, Ptr<RdmaQueuePair>> RdmaGetNxtPkt;
@@ -143,16 +143,19 @@ class QbbNetDevice : public PointToPointNetDevice
     Ptr<UniformRandomVariable> m_uv;
 
     // build for RDMA
-    DataRate GetDataRate()
-    {
-        return m_bps;
+    DataRate GetDataRate(){
+      return m_bps;
+    }
+    bool IsQbb(){
+      return true;
     }
 
-    bool IsQbb()
-    {
-        return true;
-    }
-
+    /**
+     * The queues for each priority class.
+     * @see class Queue
+     * @see class InfiniteQueue
+     */
+    Ptr<BEgressQueue> m_queue;
   protected:
     // Ptr<Node> m_node;
 
@@ -169,12 +172,6 @@ class QbbNetDevice : public PointToPointNetDevice
     /// Resume a paused queue and call DequeueAndTransmit()
     virtual void Resume(unsigned qIndex);
 
-    /**
-     * The queues for each priority class.
-     * @see class Queue
-     * @see class InfiniteQueue
-     */
-    Ptr<BEgressQueue> m_queue;
 
     Ptr<QbbChannel> m_channel;
 

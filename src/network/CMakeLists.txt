@@ -156,6 +156,7 @@ set(header_files
     utils/broadcom-egress-queue.h
     utils/custom-header.h
     utils/int-header.h
+    utils/cncp-flowkey.h
 )
 
 build_lib(

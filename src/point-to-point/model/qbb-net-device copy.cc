@@ -496,6 +496,7 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
     packet->PeekHeader(ch);
     if (ch.l3Prot == 0xFE)
     { // PFC
+        NS_LOG_INFO("Receive PFC");
         if (!m_qbbEnabled)
         {
             return;
@@ -512,8 +513,18 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
             Resume(qIndex);
         }
     }
+    else if (ch.l3Prot == 0xFB) {
+        NS_LOG_INFO("Receive CNCP report");
+        // CNCP report from previous hop, only handled by switch
+        if (GetNode()->GetNodeType() > 0)
+        { // switch
+            packet->AddPacketTag(FlowIdTag(m_ifIndex));
+            GetNode()->SwitchReceiveFromDevice(this, packet, ch);
+        }
+    }
     else
     { // non-PFC packets (data, ACK, NACK, CNP...)
+        NS_LOG_INFO("Receive non-PFC packets");
         if (GetNode()->GetNodeType() > 0)
         { // switch
             packet->AddPacketTag(FlowIdTag(m_ifIndex));
@@ -526,6 +537,8 @@ QbbNetDevice::Receive(Ptr<Packet> packet)
             // TODO we may based on the ret do something
         }
     }
+
+    NS_LOG_INFO("Receive done");
     return;
 }
 
@@ -564,6 +577,44 @@ QbbNetDevice::SendPfc(uint32_t qIndex, uint32_t type)
     AddHeader(p, 0x800);
     CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
     p->PeekHeader(ch);
+    SwitchSend(0, p, ch);
+}
+
+void
+QbbNetDevice::SendCNCPReport(std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable)
+{
+    NS_LOG_FUNCTION(this);
+    
+    // Create a new packet
+    Ptr<Packet> p = Create<Packet>();
+    
+    // Create and setup the custom header
+    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+    ch.l3Prot = 0xFB; // CNCP protocol number
+    
+    // Set up the CNCP header
+    ch.cncp.dataLength = 0; // Will be updated after adding flow infos
+    
+    // Convert flow table to FlowInfo vector
+    ch.flowInfos.clear();
+    for (const auto& flow : m_flowBytesOnNodeTable) {
+        FlowInfo info;
+        info.srcIp = flow.first.sip;
+        info.dstIp = flow.first.dip;
+        info.srcPort = flow.first.sport;
+        info.dstPort = flow.first.dport;
+        info.protocol = flow.first.protocol;
+        info.flowInfo = flow.second; // Store the bytes count in flowInfo
+        ch.flowInfos.push_back(info);
+    }
+    
+    // Update the data length in CNCP header
+    ch.cncp.dataLength = ch.flowInfos.empty() ? 0 : (2 + ch.flowInfos.size() * sizeof(FlowInfo));
+    
+    // Add the header to the packet
+    p->AddHeader(ch);
+    
+    // Send the packet using the device's send method
     SwitchSend(0, p, ch);
 }
 
@@ -701,34 +752,6 @@ QbbNetDevice::UpdateNextAvail(Time t)
         Simulator::Cancel(m_nextSend);
         Time delta = t < Simulator::Now() ? Time(0) : t - Simulator::Now();
         m_nextSend = Simulator::Schedule(delta, &QbbNetDevice::DequeueAndTransmit, this);
-    }
-}
-
-void
-QbbNetDevice::SendCNCPReport(
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable)
-{
-    FlowKeyHash hasher;
-
-    for (const auto& flow : m_flowBytesOnNodeTable)
-    {
-        Ptr<Packet> p = Create<Packet>(0);
-        CncpControlHeader cncp_ch(flow.first.sip, flow.first.dip, flow.first.sport, flow.first.dport, flow.first.protocol, flow.second);
-        p->AddHeader(cncp_ch);
-        Ipv4Header ipv4h; // Prepare IPv4 header
-        ipv4h.SetProtocol(0xFB);
-        ipv4h.SetSource(GetNode()->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
-        ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
-        ipv4h.SetPayloadSize(p->GetSize());
-        ipv4h.SetTtl(1);
-        // ipv4h.SetIdentification(UniformVariable(0, 65536).GetValue());
-        ipv4h.SetIdentification(m_uv->GetInteger(0, 65535));
-        p->AddHeader(ipv4h);
-        AddHeader(p, 0x800);
-        CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header |
-                        CustomHeader::L4_Header);
-        p->PeekHeader(ch);
-        SwitchSend(0, p, ch);
     }
 }
 } // namespace ns3

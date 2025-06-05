@@ -555,7 +555,6 @@ int RdmaHw::ReceiveCodingUdp(Ptr<Packet> p, CustomHeader &ch){
 }
 
 int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
-	NS_LOG_INFO("ReceiveCodingAck at node " << m_node->GetId());
 	uint16_t qIndex = ch.ack.pg;
 	uint16_t port = ch.ack.dport;
 	uint32_t seq = ch.ack.seq;
@@ -569,6 +568,7 @@ int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
 
 	uint32_t nic_idx = GetNicIdxOfQp(qp);
 	Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
+	NS_LOG_DEBUG("Qp size: " << qp->m_size << " snd_una: " << qp->snd_una << " snd_nxt: " << qp->snd_nxt);
 	qp->Acknowledge(qp->snd_una + m_mtu); // coding-based transport always push forward receiver's expected sequence number when receiving an ack
 	if (qp->IsFinished()){
 		QpComplete(qp);
@@ -591,7 +591,7 @@ int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
 	// 	HandleAckHpPint(qp, p, ch);
 	// }
 	// ACK may advance the on-the-fly window, allowing more packets to send
-	// dev->TriggerTransmit();
+	dev->TriggerTransmit();
 	return 0;
 }
 
