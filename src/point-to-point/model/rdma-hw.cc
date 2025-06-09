@@ -473,7 +473,7 @@ Ptr<Packet> RdmaHw::GetNxtCodingPacket(Ptr<RdmaQueuePair> qp){
 	Ptr<Packet> p = Create<Packet> (payload_size);
 	// add SeqTsHeader
 	RDMASeqTsHeader seqTs;
-	seqTs.SetSeq (qp->snd_nxt);
+	seqTs.SetSeq (qp->coding_snd_nxt);
 	seqTs.SetPG (qp->m_pg);
 	p->AddHeader (seqTs);
 	// add udp header
@@ -497,7 +497,7 @@ Ptr<Packet> RdmaHw::GetNxtCodingPacket(Ptr<RdmaQueuePair> qp){
 	p->AddHeader (ppp);
 
 	// update state
-	qp->snd_nxt += payload_size;
+	qp->coding_snd_nxt += payload_size;
 	qp->m_ipid++;
 
 	// return
@@ -571,6 +571,7 @@ int RdmaHw::ReceiveCodingAck(Ptr<Packet> p, CustomHeader &ch){
 	NS_LOG_DEBUG("Qp size: " << qp->m_size << " snd_una: " << qp->snd_una << " snd_nxt: " << qp->snd_nxt);
 	qp->Acknowledge(qp->snd_una + m_mtu); // coding-based transport always push forward receiver's expected sequence number when receiving an ack
 	if (qp->IsFinished()){
+		qp->snd_nxt = qp->m_size; // only for coding-based transport, qp->snd_nxt = qp->m_size will let GetBytesLeft() return 0, and stop sending more coding packets
 		QpComplete(qp);
 	}
 
