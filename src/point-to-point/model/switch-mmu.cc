@@ -47,16 +47,11 @@ SwitchMmu::CheckIngressAdmission(uint32_t port, uint32_t qIndex, uint32_t psize)
     if (psize + hdrm_bytes[port][qIndex] > headroom[port] &&
         psize + GetSharedUsed(port, qIndex) > GetPfcThreshold(port))
     {
-        printf("%lu %u Drop: queue:%u,%u: Headroom full\n",
-               Simulator::Now().GetTimeStep(),
-               node_id,
-               port,
-               qIndex);
+        NS_LOG_DEBUG(Simulator::Now().GetTimeStep() << " " << node_id << " Drop: queue:" << port << "," << qIndex << ": Headroom full");
         for (uint32_t i = 1; i < 64; i++)
         {
-            printf("(%u,%u)", hdrm_bytes[i][3], ingress_bytes[i][3]);
+            NS_LOG_DEBUG("(" << hdrm_bytes[i][3] << "," << ingress_bytes[i][3] << ")");
         }
-        printf("\n");
         return false;
     }
     return true;
