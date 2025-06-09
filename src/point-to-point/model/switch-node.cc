@@ -31,6 +31,11 @@ SwitchNode::GetTypeId(void)
                                           BooleanValue(false),
                                           MakeBooleanAccessor(&SwitchNode::m_ecnEnabled),
                                           MakeBooleanChecker())
+                            .AddAttribute("PfcEnabled",
+                                          "Enable PFC.",
+                                          BooleanValue(true),
+                                          MakeBooleanAccessor(&SwitchNode::m_pfcEnabled),
+                                          MakeBooleanChecker())
                             .AddAttribute("CcMode",
                                           "CC mode.",
                                           UintegerValue(0),
@@ -122,7 +127,7 @@ void
 SwitchNode::CheckAndSendPfc(uint32_t inDev, uint32_t qIndex)
 {
     Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
-    if (m_mmu->CheckShouldPause(inDev, qIndex))
+    if (m_mmu->CheckShouldPause(inDev, qIndex) && m_pfcEnabled)
     {
         device->SendPfc(qIndex, 0);
         m_mmu->SetPause(inDev, qIndex);
@@ -167,7 +172,7 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
         uint32_t inDev = t.GetFlowId();
         if (qIndex != 0)
         { // not highest priority
-            if (m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) &&
+            if ((m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) || !m_pfcEnabled) &&
                 m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) && CNCPAdmitIngress(p, ch))
             { // Admission control
                 m_mmu->UpdateIngressAdmission(inDev, qIndex, p->GetSize());

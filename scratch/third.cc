@@ -45,7 +45,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
-bool enable_qcn = true, use_dynamic_pfc_threshold = true;
+bool enable_qcn = true, enable_pfc = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
 std::string data_rate, link_delay, topology_file, flow_file, trace_file, trace_output_file;
@@ -650,6 +650,20 @@ main(int argc, char* argv[])
                     std::cout << "ENABLE_QCN\t\t\t" << "No" << "\n";
                 }
             }
+            else if (key.compare("ENABLE_PFC") == 0)
+            {
+                uint32_t v;
+                conf >> v;
+                enable_pfc = v;
+                if (enable_pfc)
+                {
+                    std::cout << "ENABLE_PFC\t\t\t" << "Yes" << "\n";
+                }
+                else
+                {
+                    std::cout << "ENABLE_PFC\t\t\t" << "No" << "\n";
+                }
+            }
             else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0)
             {
                 uint32_t v;
@@ -1084,6 +1098,7 @@ main(int argc, char* argv[])
             Ptr<SwitchNode> sw = CreateObject<SwitchNode>();
             n.Add(sw);
             sw->SetAttribute("EcnEnabled", BooleanValue(enable_qcn));
+            sw->SetAttribute("PfcEnabled", BooleanValue(enable_pfc));
         }
     }
 
