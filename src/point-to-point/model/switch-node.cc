@@ -496,7 +496,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t lastPktTs = m_flowLastPktTsTable[key];
         uint64_t currentTs = Simulator::Now().GetTimeStep();
         uint64_t dt = currentTs - lastPktTs;
-        uint64_t bytesWindow = m_flowIngressWindowTable[key] + flowRate * dt;
+        uint64_t bytesWindow = m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL);
         if (bytesWindow < packetSize)
         {
             return false;
@@ -557,7 +557,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         uint64_t currentTs = Simulator::Now().GetTimeStep();
         uint64_t dt = currentTs - lastPktTs;
         // update ingress bytes window
-        m_flowIngressWindowTable[key] = m_flowIngressWindowTable[key] + flowRate * dt - packetSize;
+        m_flowIngressWindowTable[key] = m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL) - packetSize;
         // update last packet timestamp
         m_flowLastPktTsTable[key] = currentTs;
     }
