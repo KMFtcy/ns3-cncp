@@ -580,11 +580,45 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         m_flowBytesOnNodeTable[key] = 0;
         m_flowPrevHopDevTable[key] = input_device;
         m_flowBytesOnNextNodeTable[key] = 0;
+        // Schedule a check event, if the flow is expired, remove it from the table
+        Simulator::Schedule(NanoSeconds(m_cncp_check_interval),
+                            &SwitchNode::CNCPCheckFlowExpired,
+                            this,
+                            key);
     }
 
     m_flowBytesOnNodeTable[key] += packet->GetSize();
 
     return;
+}
+
+void
+SwitchNode::CNCPCheckFlowExpired(FlowKey key)
+{
+    // check if the flow is expired
+    uint64_t currentTs = Simulator::Now().GetTimeStep();
+    uint64_t lastPktTs = m_flowLastPktTsTable[key];
+    uint64_t dt = currentTs - lastPktTs;
+    if (dt > m_cncp_flow_expired_interval)
+    {
+        m_flowIngressWindowTable.erase(key);
+        m_flowLastPktTsTable.erase(key);
+        m_flowBytesOnNodeTable.erase(key);
+        // share this flow's rate with other flows
+        uint64_t rate = m_flowControlRateTable.erase(key);
+        size_t activeFlowCount = m_flowControlRateTable.size();
+        if (activeFlowCount > 1)
+        { // there are other flows on the node
+            uint64_t sharedRate = rate / (activeFlowCount - 1);
+            for (auto& it : m_flowControlRateTable)
+            {
+                it.second += sharedRate;
+            }
+        }
+        m_flowControlRateTable.erase(key);
+        m_flowPrevHopDevTable.erase(key);
+        m_flowBytesOnNextNodeTable.erase(key);
+    }
 }
 
 void
@@ -622,28 +656,6 @@ SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
     key.priority_group = ch.udp.pg;
     // reduce flow bytes on node
     m_flowBytesOnNodeTable[key] -= packet->GetSize();
-
-    // if flow leaves the node, remove it from the table
-    if (m_flowBytesOnNodeTable[key] == 0)
-    {
-        m_flowIngressWindowTable.erase(key);
-        m_flowLastPktTsTable.erase(key);
-        m_flowBytesOnNodeTable.erase(key);
-        // share this flow's rate with other flows
-        uint64_t rate = m_flowControlRateTable.erase(key);
-        size_t activeFlowCount = m_flowControlRateTable.size();
-        if (activeFlowCount > 1)
-        { // there are other flows on the node
-            uint64_t sharedRate = rate / (activeFlowCount - 1);
-            for (auto& it : m_flowControlRateTable)
-            {
-                it.second += sharedRate;
-            }
-        }
-        m_flowControlRateTable.erase(key);
-        m_flowPrevHopDevTable.erase(key);
-        m_flowBytesOnNextNodeTable.erase(key);
-    }
 
     return;
 }

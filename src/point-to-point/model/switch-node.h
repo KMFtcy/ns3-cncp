@@ -34,7 +34,9 @@ class SwitchNode : public Node
 
     // Flow control table for CNCP, key is flow id and value is target flow rate
     // for iterative update
-    uint64_t m_cncp_report_interval = 1000; // 0.001ms
+    uint64_t m_cncp_report_interval = 1000; // 1000 ns
+    uint64_t m_cncp_check_interval = 2000; // 2000 ns
+    uint64_t m_cncp_flow_expired_interval = 2000; // 2000 ns
     std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNextNodeTable; // used for CNCP update
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable;
@@ -92,6 +94,7 @@ class SwitchNode : public Node
     void CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo);
     void CNCPUpdate();
     uint64_t CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u);
+    void CNCPCheckFlowExpired(FlowKey key);
 };
 
 } /* namespace ns3 */
