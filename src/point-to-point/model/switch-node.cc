@@ -281,7 +281,7 @@ SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> packet, C
         key.sport = ch.cncp.sport;
         key.dport = ch.cncp.dport;
         key.protocol = ch.cncp.protocol;
-        key.priority_group = ch.udp.pg;
+        key.priority_group = ch.cncp.priority_group;
         CNCPUpdateFromReport(key, ch.cncp.flowInfo);
     }
     else
