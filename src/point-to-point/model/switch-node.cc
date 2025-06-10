@@ -173,7 +173,8 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
         if (qIndex != 0)
         { // not highest priority
             if ((m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) || !m_pfcEnabled) &&
-                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) && (CNCPAdmitIngress(p, ch) || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD))
+                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) &&
+                (CNCPAdmitIngress(p, ch) || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD))
             { // Admission control
                 m_mmu->UpdateIngressAdmission(inDev, qIndex, p->GetSize());
                 m_mmu->UpdateEgressAdmission(idx, qIndex, p->GetSize());
@@ -494,7 +495,8 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t lastPktTs = m_flowLastPktTsTable[key];
         uint64_t currentTs = Simulator::Now().GetTimeStep();
         uint64_t dt = currentTs - lastPktTs;
-        uint64_t bytesWindow = m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL);
+        uint64_t bytesWindow =
+            m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL);
         if (bytesWindow < packetSize)
         {
             return false;
@@ -555,7 +557,8 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         uint64_t currentTs = Simulator::Now().GetTimeStep();
         uint64_t dt = currentTs - lastPktTs;
         // update ingress bytes window
-        m_flowIngressWindowTable[key] = m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL) - packetSize;
+        m_flowIngressWindowTable[key] =
+            m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL) - packetSize;
         // update last packet timestamp
         m_flowLastPktTsTable[key] = currentTs;
     }
@@ -735,28 +738,34 @@ SwitchNode::CNCPUpdate()
         {
             // Create a dummy packet for GetOutDev
             Ptr<Packet> dummyPacket = Create<Packet>();
-            
+
             // Create and setup CustomHeader
             CustomHeader ch;
             ch.sip = key.sip;
             ch.dip = key.dip;
             ch.l3Prot = key.protocol;
-            
+
             // Set protocol specific fields
-            if (key.protocol == 0x6) { // TCP
+            if (key.protocol == 0x6)
+            { // TCP
                 ch.tcp.sport = key.sport;
                 ch.tcp.dport = key.dport;
-            } else if (key.protocol == 0x11) { // UDP
+            }
+            else if (key.protocol == 0x11)
+            { // UDP
                 ch.udp.sport = key.sport;
                 ch.udp.dport = key.dport;
                 ch.udp.pg = key.priority_group;
-            } else if (key.protocol == 0xFC || key.protocol == 0xFD) { // ACK/NACK
+            }
+            else if (key.protocol == 0xFC || key.protocol == 0xFD)
+            { // ACK/NACK
                 ch.ack.sport = key.sport;
                 ch.ack.dport = key.dport;
             }
             // Get the output device index
             int dev_idx = GetOutDev(dummyPacket, ch);
-            if (dev_idx >= 0) {
+            if (dev_idx >= 0)
+            {
                 Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
                 p_e = m_default_flow_capacity_on_node - device->GetQueueLength(key.priority_group);
             }
