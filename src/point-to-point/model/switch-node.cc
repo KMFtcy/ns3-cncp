@@ -173,7 +173,7 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
         if (qIndex != 0)
         { // not highest priority
             if ((m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) || !m_pfcEnabled) &&
-                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) && CNCPAdmitIngress(p, ch))
+                m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) && (CNCPAdmitIngress(p, ch) || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD))
             { // Admission control
                 m_mmu->UpdateIngressAdmission(inDev, qIndex, p->GetSize());
                 m_mmu->UpdateEgressAdmission(idx, qIndex, p->GetSize());
@@ -183,7 +183,7 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
                 return; // Drop
             }
             // If packet go through ACL, notify CNCP flow control
-            if (m_ccMode == 11)
+            if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
             {
                 CNCPNotifyIngress(p, ch, idx, input_device);
             }
@@ -295,6 +295,8 @@ SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p
 {
     FlowIdTag t;
     p->PeekPacketTag(t);
+    CustomHeader ch;
+    p->RemoveHeader(ch);
     if (qIndex != 0)
     {
         uint32_t inDev = t.GetFlowId();
@@ -316,7 +318,7 @@ SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p
             }
         }
         // CheckAndSendPfc(inDev, qIndex);
-        if (m_ccMode == 11)
+        if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
         {
             CNCPNotifyEgress(p);
         }
@@ -473,11 +475,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         sport = ch.udp.sport;
         dport = ch.udp.dport;
     }
-    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
-    { // ACK/NACK
-        sport = ch.ack.sport;
-        dport = ch.ack.dport;
-    }
+
     FlowKey key;
     key.sip = sip;
     key.dip = dip;
