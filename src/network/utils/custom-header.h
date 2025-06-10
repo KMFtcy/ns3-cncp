@@ -138,6 +138,7 @@ public:
 		  uint16_t sport;
 		  uint16_t dport;
 		  uint8_t protocol;
+		  uint8_t priority_group;
 		  uint64_t flowInfo;
 	  } cncp;
   };

@@ -42,7 +42,7 @@ class CncpControlHeader : public Header
 {
   public:
     CncpControlHeader();
-    CncpControlHeader(uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint8_t protocol, uint64_t flowInfo);
+    CncpControlHeader(uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint8_t protocol, uint8_t priority_group, uint64_t flowInfo);
     virtual ~CncpControlHeader();
 
     // Setters
@@ -74,6 +74,7 @@ class CncpControlHeader : public Header
     uint16_t m_sport;
     uint16_t m_dport;
     uint8_t m_protocol;
+    uint8_t m_priority_group;
     uint64_t m_flow_info;
 };
 

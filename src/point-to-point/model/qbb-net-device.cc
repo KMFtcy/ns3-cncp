@@ -713,7 +713,7 @@ QbbNetDevice::SendCNCPReport(
     for (const auto& flow : m_flowBytesOnNodeTable)
     {
         Ptr<Packet> p = Create<Packet>(0);
-        CncpControlHeader cncp_ch(flow.first.sip, flow.first.dip, flow.first.sport, flow.first.dport, flow.first.protocol, flow.second);
+        CncpControlHeader cncp_ch(flow.first.sip, flow.first.dip, flow.first.sport, flow.first.dport, flow.first.protocol, flow.first.priority_group, flow.second);
         p->AddHeader(cncp_ch);
         Ipv4Header ipv4h; // Prepare IPv4 header
         ipv4h.SetProtocol(0xFB);

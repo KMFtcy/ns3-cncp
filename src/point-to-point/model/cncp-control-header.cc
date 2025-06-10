@@ -35,12 +35,13 @@ CncpControlHeader::CncpControlHeader ()
 {
 }
 
-CncpControlHeader::CncpControlHeader (uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint8_t protocol, uint64_t flowInfo)
+CncpControlHeader::CncpControlHeader (uint32_t sip, uint32_t dip, uint16_t sport, uint16_t dport, uint8_t protocol, uint8_t priority_group, uint64_t flowInfo)
   : m_sip (sip),
     m_dip (dip),
     m_sport (sport),
     m_dport (dport),
     m_protocol (protocol),
+    m_priority_group (priority_group),
     m_flow_info (flowInfo)
 {
 }
@@ -145,13 +146,14 @@ CncpControlHeader::Print (std::ostream &os) const
      << ", sport=" << m_sport
      << ", dport=" << m_dport
      << ", protocol=" << (uint32_t)m_protocol
+     << ", priority_group=" << (uint32_t)m_priority_group
      << ", flow_info=" << m_flow_info;
 }
 
 uint32_t
 CncpControlHeader::GetSerializedSize (void) const
 {
-  return 21; // 4 bytes for sip + 4 bytes for dip + 2 bytes for sport + 2 bytes for dport + 1 byte for protocol + 8 bytes for flow_info
+  return 22; // 4 bytes for sip + 4 bytes for dip + 2 bytes for sport + 2 bytes for dport + 1 byte for protocol + 1 byte for priority_group + 8 bytes for flow_info
 }
 
 void
@@ -162,6 +164,7 @@ CncpControlHeader::Serialize (Buffer::Iterator start) const
   start.WriteU16 (m_sport);
   start.WriteU16 (m_dport);
   start.WriteU8 (m_protocol);
+  start.WriteU8 (m_priority_group);
   start.WriteU64 (m_flow_info);
 }
 
@@ -173,6 +176,7 @@ CncpControlHeader::Deserialize (Buffer::Iterator start)
   m_sport = start.ReadU16 ();
   m_dport = start.ReadU16 ();
   m_protocol = start.ReadU8 ();
+  m_priority_group = start.ReadU8 ();
   m_flow_info = start.ReadU64 ();
   return GetSerializedSize ();
 }
