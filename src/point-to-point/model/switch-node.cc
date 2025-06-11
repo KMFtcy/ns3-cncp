@@ -563,18 +563,28 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     else
     { // flow is not in the table, means new flow arrives, reallocate flow rate
         uint64_t currentTs = Simulator::Now().GetTimeStep();
-        m_flowIngressWindowTable[key] = packet->GetSize();
-        // reallocate flow rate
-        size_t activeFlowCount = m_flowControlRateTable.size();
-        m_flowControlRateTable[key] = 0;
+        m_flowIngressWindowTable[key] = packet->GetSize(); // saved for the first packet
+        m_flowEgressDevIdxTable[key] = output_dev_idx;
         // get device rate
         Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[output_dev_idx]);
         uint64_t totalRate = device->GetDataRate().GetBitRate();
+        std::cout << "Node " << GetId() << " output index " << output_dev_idx << "for dport " << key.dport << " with rate " << totalRate << std::endl;
+        // count flows on the same egress device
+        size_t activeFlowCount = 0;
+        for (const auto& kv : m_flowEgressDevIdxTable) {
+            if (kv.second == output_dev_idx) {
+                ++activeFlowCount;
+            }
+        }
         // reallocate flow rate
-        flowRate = totalRate / (activeFlowCount + 1);
+        flowRate = totalRate / (activeFlowCount);
         for (auto& it : m_flowControlRateTable)
         {
-            it.second = flowRate;
+            // Use find to avoid inserting a default value if the key does not exist in m_flowEgressDevIdxTable
+            auto egressIt = m_flowEgressDevIdxTable.find(it.first);
+            if (egressIt != m_flowEgressDevIdxTable.end() && egressIt->second == output_dev_idx) {
+                it.second = flowRate;
+            }
         }
         m_flowControlRateTable[key] = flowRate;
         m_flowBytesOnNodeTable[key] = 0;

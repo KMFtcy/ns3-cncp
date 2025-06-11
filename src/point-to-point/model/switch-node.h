@@ -37,6 +37,7 @@ class SwitchNode : public Node
     uint64_t m_cncp_report_interval = 1000;       // 1000 ns
     uint64_t m_cncp_check_interval = 2000;        // 2000 ns
     uint64_t m_cncp_flow_expired_interval = 2000; // 2000 ns
+    std::unordered_map<FlowKey, uint32_t, FlowKeyHash> m_flowEgressDevIdxTable; // used for initializing flow rate
     std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash>
         m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash>
