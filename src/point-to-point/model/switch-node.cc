@@ -559,6 +559,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     // admission control to simulate flow control
     if (it != m_flowControlRateTable.end())
     { // flow is already in the table, do nothing here. Because we don't know if it should be admitted or not here.
+        flowRate = it->second;
     }
     else
     { // flow is not in the table, means new flow arrives, reallocate flow rate
