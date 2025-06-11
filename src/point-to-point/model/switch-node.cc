@@ -579,7 +579,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         m_flowControlRateTable[key] = flowRate;
         m_flowBytesOnNodeTable[key] = 0;
         m_flowPrevHopDevTable[key] = input_device;
-        m_flowBytesOnNextNodeTable[key] = 0;
+        m_flowQvTable[key] = 0;
         m_flowLastPktTsTable[key] = currentTs;
         // Schedule a check event, if the flow is expired, remove it from the table
         Simulator::Schedule(NanoSeconds(m_cncp_check_interval),
@@ -632,7 +632,7 @@ SwitchNode::CNCPCheckFlowExpired(FlowKey key)
         }
         m_flowControlRateTable.erase(key);
         m_flowPrevHopDevTable.erase(key);
-        m_flowBytesOnNextNodeTable.erase(key);
+        m_flowQvTable.erase(key);
     }
 }
 
@@ -697,8 +697,8 @@ SwitchNode::CNCPUpdate()
         FlowKey key = flow.first;
         uint64_t f_e = flow.second;
 
-        // Get q_v from m_flowBytesOnNextNodeTable
-        int64_t q_v = m_default_flow_capacity_on_node - m_flowBytesOnNextNodeTable[key];
+        // Get q_v from flowQvTable
+        int64_t q_v = m_default_flow_capacity_on_node - m_flowQvTable[key];
         if (q_v < 0)
         {
             q_v = 0;
@@ -783,7 +783,7 @@ SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint6
 void
 SwitchNode::CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo)
 {
-    m_flowBytesOnNextNodeTable[key] = flowInfo;
+    m_flowQvTable[key] = flowInfo;
 }
 
 } /* namespace ns3 */

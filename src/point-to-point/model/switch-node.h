@@ -40,7 +40,7 @@ class SwitchNode : public Node
     std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash>
         m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash>
-        m_flowBytesOnNextNodeTable; // used for CNCP update
+        m_flowQvTable; // used for CNCP update
     std::unordered_map<FlowKey, int64_t, FlowKeyHash> m_flowBytesOnNodeTable;
     const uint64_t m_default_flow_capacity_on_node =
         10000; // default flow capacity on node, also called user queue capacity in the CNCP paper.
