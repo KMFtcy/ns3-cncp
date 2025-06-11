@@ -558,7 +558,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     auto it = m_flowControlRateTable.find(key);
     // admission control to simulate flow control
     if (it != m_flowControlRateTable.end())
-    { // flow is already in the table, update ingress bytes window and last packet timestamp
+    { // flow is already in the table, do nothing here. Because we don't know if it should be admitted or not here.
     }
     else
     { // flow is not in the table, means new flow arrives, reallocate flow rate
