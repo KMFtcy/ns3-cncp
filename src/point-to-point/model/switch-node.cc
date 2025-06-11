@@ -171,7 +171,13 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
         p->PeekPacketTag(t);
         uint32_t inDev = t.GetFlowId();
         if (qIndex != 0)
-        { // not highest priority
+        {
+            // notify CNCP flow control before drop
+            if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
+            {
+                CNCPNotifyIngress(p, ch, idx, input_device);
+            }
+            // not highest priority
             if ((m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) || !m_pfcEnabled) &&
                 m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) &&
                 (CNCPAdmitIngress(p, ch) || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD))
@@ -182,11 +188,6 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
             else
             {
                 return; // Drop
-            }
-            // If packet go through ACL, notify CNCP flow control
-            if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
-            {
-                CNCPNotifyIngress(p, ch, idx, input_device);
             }
             CheckAndSendPfc(inDev, qIndex);
         }
@@ -317,11 +318,6 @@ SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p
                 p->AddHeader(h);
                 p->AddHeader(ppp);
             }
-        }
-        // CheckAndSendPfc(inDev, qIndex);
-        if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
-        {
-            CNCPNotifyEgress(p);
         }
         CheckAndSendResume(inDev, qIndex);
     }
@@ -497,17 +493,29 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t dt = currentTs - lastPktTs;
         uint64_t bytesWindow =
             m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL);
+        // NS_LOG_DEBUG("Node " << this->GetId() << " check packet:" << "port: " << key.dport
+        //                      << ", seq: " << ch.udp.seq << ", bytesWindow: " << bytesWindow
+        //                      << ", packetSize: " << packetSize << " with dt: " << dt);
         if (bytesWindow < packetSize)
         {
             return false;
         }
         else
-        {
+        { // packets comming, update flow control information
+            // update ingress bytes window
+            m_flowIngressWindowTable[key] = bytesWindow - packetSize;
+            // update last packet timestamp
+            m_flowLastPktTsTable[key] = currentTs;
             return true;
         }
     }
     else
     { // flow is not in the table, means it is a new flow, always admit
+        // NS_LOG_DEBUG("Node " << this->GetId() << "admit new flow:" << "protocol: "
+        //                      << (int)key.protocol << ", sip: " << key.sip << ", dip: " << key.dip
+        //                      << ", sport: " << key.sport << ", dport: " << key.dport
+        //                      << ", pg: " << (int)key.priority_group);
+        m_flowLastPktTsTable[key] = Simulator::Now().GetTimeStep();
         return true;
     }
 }
@@ -545,28 +553,17 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     key.dport = dport;
     key.protocol = protocol;
     key.priority_group = ch.udp.pg;
+    uint64_t flowRate = 0;
     // check if flow is already in the table
     auto it = m_flowControlRateTable.find(key);
     // admission control to simulate flow control
     if (it != m_flowControlRateTable.end())
     { // flow is already in the table, update ingress bytes window and last packet timestamp
-        uint64_t flowRate = it->second;
-        uint64_t packetSize = packet->GetSize();
-        // get timestamp of the last packet
-        uint64_t lastPktTs = m_flowLastPktTsTable[key];
-        uint64_t currentTs = Simulator::Now().GetTimeStep();
-        uint64_t dt = currentTs - lastPktTs;
-        // update ingress bytes window
-        m_flowIngressWindowTable[key] =
-            m_flowIngressWindowTable[key] + (flowRate * dt) / (8ULL * 1000000000ULL) - packetSize;
-        // update last packet timestamp
-        m_flowLastPktTsTable[key] = currentTs;
     }
     else
     { // flow is not in the table, means new flow arrives, reallocate flow rate
         uint64_t currentTs = Simulator::Now().GetTimeStep();
-        m_flowIngressWindowTable[key] = 0;
-        m_flowLastPktTsTable[key] = currentTs;
+        m_flowIngressWindowTable[key] = packet->GetSize();
         // reallocate flow rate
         size_t activeFlowCount = m_flowControlRateTable.size();
         m_flowControlRateTable[key] = 0;
@@ -574,7 +571,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[output_dev_idx]);
         uint64_t totalRate = device->GetDataRate().GetBitRate();
         // reallocate flow rate
-        uint64_t flowRate = totalRate / (activeFlowCount + 1);
+        flowRate = totalRate / (activeFlowCount + 1);
         for (auto& it : m_flowControlRateTable)
         {
             it.second = flowRate;
@@ -583,6 +580,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         m_flowBytesOnNodeTable[key] = 0;
         m_flowPrevHopDevTable[key] = input_device;
         m_flowBytesOnNextNodeTable[key] = 0;
+        m_flowLastPktTsTable[key] = currentTs;
         // Schedule a check event, if the flow is expired, remove it from the table
         Simulator::Schedule(NanoSeconds(m_cncp_check_interval),
                             &SwitchNode::CNCPCheckFlowExpired,
@@ -590,8 +588,22 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
                             key);
     }
 
-    m_flowBytesOnNodeTable[key] += packet->GetSize();
+    // m_flowBytesOnNodeTable[key] += packet->GetSize();
 
+    // update Q_u for CNCP flow control
+    uint64_t lastPktTs = m_flowLastPktTsTable[key];
+    uint64_t currentTs = Simulator::Now().GetTimeStep();
+    uint64_t dt = currentTs - lastPktTs;
+    int32_t deltaQ = packet->GetSize() - flowRate * dt / (8ULL * 1000000000ULL);
+    m_flowBytesOnNodeTable[key] += deltaQ;
+    if (m_flowBytesOnNodeTable[key] < 0)
+    {
+        m_flowBytesOnNodeTable[key] = 0;
+    }
+    if (m_flowBytesOnNodeTable[key] > m_default_flow_capacity_on_node)
+    {
+        m_flowBytesOnNodeTable[key] = m_default_flow_capacity_on_node;
+    }
     return;
 }
 
@@ -622,45 +634,6 @@ SwitchNode::CNCPCheckFlowExpired(FlowKey key)
         m_flowPrevHopDevTable.erase(key);
         m_flowBytesOnNextNodeTable.erase(key);
     }
-}
-
-void
-SwitchNode::CNCPNotifyEgress(Ptr<Packet> packet)
-{
-    // obtain flow key from custom header
-    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
-    ch.getInt = 1; // parse INT header
-    packet->PeekHeader(ch);
-    uint32_t sip = ch.sip;
-    uint32_t dip = ch.dip;
-    uint16_t sport = 0, dport = 0;
-    uint8_t protocol = ch.l3Prot;
-    if (ch.l3Prot == 0x6)
-    { // TCP
-        sport = ch.tcp.sport;
-        dport = ch.tcp.dport;
-    }
-    else if (ch.l3Prot == 0x11)
-    { // UDP
-        sport = ch.udp.sport;
-        dport = ch.udp.dport;
-    }
-    else if (ch.l3Prot == 0xFC || ch.l3Prot == 0xFD)
-    { // ACK/NACK
-        sport = ch.ack.sport;
-        dport = ch.ack.dport;
-    }
-    FlowKey key;
-    key.sip = sip;
-    key.dip = dip;
-    key.sport = sport;
-    key.dport = dport;
-    key.protocol = protocol;
-    key.priority_group = ch.udp.pg;
-    // reduce flow bytes on node
-    m_flowBytesOnNodeTable[key] -= packet->GetSize();
-
-    return;
 }
 
 void
@@ -725,10 +698,18 @@ SwitchNode::CNCPUpdate()
         uint64_t f_e = flow.second;
 
         // Get q_v from m_flowBytesOnNextNodeTable
-        uint64_t q_v = m_default_flow_capacity_on_node - m_flowBytesOnNextNodeTable[key];
+        int64_t q_v = m_default_flow_capacity_on_node - m_flowBytesOnNextNodeTable[key];
+        if (q_v < 0)
+        {
+            q_v = 0;
+        }
 
         // Get q_u from m_flowBytesOnNodeTable
-        uint64_t q_u = m_default_flow_capacity_on_node - m_flowBytesOnNodeTable[key];
+        int64_t q_u = m_default_flow_capacity_on_node - m_flowBytesOnNodeTable[key];
+        if (q_u < 0)
+        {
+            q_u = 0;
+        }
 
         // p_e(t) and q_u^i(t) are set to 0 for now (can be extended later)
         // look up entries
@@ -767,7 +748,7 @@ SwitchNode::CNCPUpdate()
             if (dev_idx >= 0)
             {
                 Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
-                p_e = m_default_flow_capacity_on_node - device->GetQueueLength(key.priority_group);
+                p_e = device->GetQueueLength(key.priority_group);
             }
         }
 
@@ -778,9 +759,11 @@ SwitchNode::CNCPUpdate()
         flow.second = f_e_new;
 
         // Print flow rate before and after update
-        NS_LOG_DEBUG("CNCPUpdate: key=(" << key.sip << ", " << key.dip << ", " << key.sport << ", "
-                                         << key.dport << ", " << key.protocol << "), oldRate=" << f_e
-                                         << ", newRate=" << f_e_new);
+        // NS_LOG_DEBUG("Node " << GetId() << " CNCPUpdate: key=(" << key.sip << ", " << key.dip <<
+        // ", " << key.sport << ", "
+        //  << key.dport << ", " << key.protocol
+        //  << "), oldRate=" << f_e << ", newRate=" << f_e_new
+        //  << ", q_v=" << q_v << ", p_e=" << p_e << ", q_u=" << q_u);
     }
 }
 
@@ -789,9 +772,11 @@ SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint6
 {
     // Compute the derivative of the utility function U'(f_e^i(t))
     // Here we use U'(x) = 1/x
-    double U_prime = m_lambda / (f_e > 0 ? f_e : 1e-6); // avoid division by zero
+    double U_prime = m_lambda / (f_e > 0 ? f_e : 1); // avoid division by zero
 
-    int64_t result = f_e + m_gamma * (q_v + m_lambda * U_prime - p_e - q_u);
+    double result = f_e + m_gamma * (q_v * 8 + U_prime - p_e * 8 - q_u * 8);
+    // NS_LOG_DEBUG("U_prime=" << U_prime << ", f_e=" << f_e << ", q_v=" << q_v << ", p_e=" << p_e
+    // << ", q_u=" << q_u << ", result=" << result);
     return result > 0 ? static_cast<uint64_t>(result) : 0;
 }
 

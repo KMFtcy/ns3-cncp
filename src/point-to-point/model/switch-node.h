@@ -34,17 +34,21 @@ class SwitchNode : public Node
 
     // Flow control table for CNCP, key is flow id and value is target flow rate
     // for iterative update
-    uint64_t m_cncp_report_interval = 1000; // 1000 ns
-    uint64_t m_cncp_check_interval = 2000; // 2000 ns
+    uint64_t m_cncp_report_interval = 1000;       // 1000 ns
+    uint64_t m_cncp_check_interval = 2000;        // 2000 ns
     uint64_t m_cncp_flow_expired_interval = 2000; // 2000 ns
-    std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash> m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNextNodeTable; // used for CNCP update
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable;
-    const uint64_t m_default_flow_capacity_on_node = 10000; // default flow capacity on node, also called user queue capacity in the CNCP paper.
-    uint32_t m_gamma = 0.1;
-    uint32_t m_lambda = 1e9;
+    std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash>
+        m_flowPrevHopDevTable; // used for sending CNCP report to previous hop device
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash>
+        m_flowBytesOnNextNodeTable; // used for CNCP update
+    std::unordered_map<FlowKey, int64_t, FlowKeyHash> m_flowBytesOnNodeTable;
+    const uint64_t m_default_flow_capacity_on_node =
+        10000; // default flow capacity on node, also called user queue capacity in the CNCP paper.
+    double m_gamma = 1;
+    double m_lambda = 1e10;
     // for flow rate control
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowControlRateTable; // flow rate, in bytes per second
+    std::unordered_map<FlowKey, uint64_t, FlowKeyHash>
+        m_flowControlRateTable; // flow rate, in bits per second
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowIngressWindowTable;
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowLastPktTsTable;
 
@@ -85,10 +89,9 @@ class SwitchNode : public Node
         Ptr<Packet> packet,
         CustomHeader& ch,
         uint32_t output_dev_idx,
-        Ptr<NetDevice> device); // notify ingress and update flow control table. Can not integrate
-                                // with CNCPAdmitIngress because other ACLs are applied before this
-                                // and may reject the packet, in such case, this must not be called.
-    void CNCPNotifyEgress(Ptr<Packet> packet);
+        Ptr<NetDevice> device); // notify ingress and update flow control table. Packets are dropped
+                                // also are also recorded here, such that this function should be
+                                // called after CNCPAdmitIngress ACLs.
     void StartReportCNCP();
     void ReportCNCPStatus();
     void CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo);
