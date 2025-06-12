@@ -592,7 +592,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         m_flowQvTable[key] = m_default_flow_capacity_on_node;
         m_flowLastIngressPktTsTable[key] = currentTs;
         // Schedule a check event, if the flow is expired, remove it from the table
-        Simulator::Schedule(NanoSeconds(m_cncp_check_interval),
+        Simulator::Schedule(NanoSeconds(m_cncp_flow_expired_interval),
                             &SwitchNode::CNCPCheckFlowExpired,
                             this,
                             key);
@@ -644,7 +644,13 @@ SwitchNode::CNCPCheckFlowExpired(FlowKey key)
         }
         m_flowControlRateTable.erase(key);
         m_flowPrevHopDevTable.erase(key);
+        m_flowEgressDevIdxTable.erase(key);
         m_flowQvTable.erase(key);
+    }else{
+        Simulator::Schedule(NanoSeconds(m_cncp_flow_expired_interval),
+                            &SwitchNode::CNCPCheckFlowExpired,
+                            this,
+                            key);
     }
 }
 
