@@ -488,7 +488,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         uint64_t flowRate = it->second;
         uint64_t packetSize = packet->GetSize();
         // get timestamp of the last packet
-        uint64_t lastPktTs = m_flowLastPktTsTable[key];
+        uint64_t lastPktTs = m_flowLastIngressPktTsTable[key];
         uint64_t currentTs = Simulator::Now().GetTimeStep();
         uint64_t dt = currentTs - lastPktTs;
         uint64_t bytesWindow =
@@ -505,7 +505,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
             // update ingress bytes window
             m_flowIngressWindowTable[key] = bytesWindow - packetSize;
             // update last packet timestamp
-            m_flowLastPktTsTable[key] = currentTs;
+            m_flowLastIngressPktTsTable[key] = currentTs;
             return true;
         }
     }
@@ -515,7 +515,7 @@ SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
         //                      << (int)key.protocol << ", sip: " << key.sip << ", dip: " << key.dip
         //                      << ", sport: " << key.sport << ", dport: " << key.dport
         //                      << ", pg: " << (int)key.priority_group);
-        m_flowLastPktTsTable[key] = Simulator::Now().GetTimeStep();
+        m_flowLastIngressPktTsTable[key] = Simulator::Now().GetTimeStep();
         return true;
     }
 }
@@ -569,7 +569,6 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
         // get device rate
         Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[output_dev_idx]);
         uint64_t totalRate = device->GetDataRate().GetBitRate();
-        std::cout << "Node " << GetId() << " output index " << output_dev_idx << "for dport " << key.dport << " with rate " << totalRate << std::endl;
         // count flows on the same egress device
         size_t activeFlowCount = 0;
         for (const auto& kv : m_flowEgressDevIdxTable) {
@@ -588,10 +587,10 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
             }
         }
         m_flowControlRateTable[key] = flowRate;
-        m_flowBytesOnNodeTable[key] = 0;
+        m_flowBytesOnNodeTable[key] = m_default_flow_capacity_on_node;
         m_flowPrevHopDevTable[key] = input_device;
-        m_flowQvTable[key] = 0;
-        m_flowLastPktTsTable[key] = currentTs;
+        m_flowQvTable[key] = m_default_flow_capacity_on_node;
+        m_flowLastIngressPktTsTable[key] = currentTs;
         // Schedule a check event, if the flow is expired, remove it from the table
         Simulator::Schedule(NanoSeconds(m_cncp_check_interval),
                             &SwitchNode::CNCPCheckFlowExpired,
@@ -602,10 +601,10 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     // m_flowBytesOnNodeTable[key] += packet->GetSize();
 
     // update Q_u for CNCP flow control
-    uint64_t lastPktTs = m_flowLastPktTsTable[key];
+    uint64_t lastPktTs = m_flowLastArrivalPktTsTable[key];
     uint64_t currentTs = Simulator::Now().GetTimeStep();
     uint64_t dt = currentTs - lastPktTs;
-    int32_t deltaQ = packet->GetSize() - flowRate * dt / (8ULL * 1000000000ULL);
+    int32_t deltaQ = flowRate * dt / (8ULL * 1000000000ULL) - packet->GetSize();
     m_flowBytesOnNodeTable[key] += deltaQ;
     if (m_flowBytesOnNodeTable[key] < 0)
     {
@@ -615,6 +614,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     {
         m_flowBytesOnNodeTable[key] = m_default_flow_capacity_on_node;
     }
+    m_flowLastArrivalPktTsTable[key] = currentTs;
     return;
 }
 
@@ -623,12 +623,13 @@ SwitchNode::CNCPCheckFlowExpired(FlowKey key)
 {
     // check if the flow is expired
     uint64_t currentTs = Simulator::Now().GetTimeStep();
-    uint64_t lastPktTs = m_flowLastPktTsTable[key];
+    uint64_t lastPktTs = m_flowLastArrivalPktTsTable[key];
     uint64_t dt = currentTs - lastPktTs;
     if (dt > m_cncp_flow_expired_interval)
     {
         m_flowIngressWindowTable.erase(key);
-        m_flowLastPktTsTable.erase(key);
+        m_flowLastIngressPktTsTable.erase(key);
+        m_flowLastArrivalPktTsTable.erase(key);
         m_flowBytesOnNodeTable.erase(key);
         // share this flow's rate with other flows
         uint64_t rate = m_flowControlRateTable.erase(key);
@@ -709,14 +710,14 @@ SwitchNode::CNCPUpdate()
         uint64_t f_e = flow.second;
 
         // Get q_v from flowQvTable
-        int64_t q_v = m_default_flow_capacity_on_node - m_flowQvTable[key];
+        int64_t q_v = m_flowQvTable[key];
         if (q_v < 0)
         {
             q_v = 0;
         }
 
         // Get q_u from m_flowBytesOnNodeTable
-        int64_t q_u = m_default_flow_capacity_on_node - m_flowBytesOnNodeTable[key];
+        int64_t q_u = m_flowBytesOnNodeTable[key];
         if (q_u < 0)
         {
             q_u = 0;
@@ -785,7 +786,8 @@ SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint6
     // Here we use U'(x) = 1/x
     double U_prime = m_lambda / (f_e > 0 ? f_e : 1); // avoid division by zero
 
-    double result = f_e + m_gamma * (q_v * 8 + U_prime - p_e * 8 - q_u * 8);
+    double trans_gamma = 8 * m_gamma / m_cncp_report_interval;
+    double result = f_e + m_gamma * (q_v * trans_gamma + U_prime - p_e * trans_gamma - q_u * trans_gamma);
     // NS_LOG_DEBUG("U_prime=" << U_prime << ", f_e=" << f_e << ", q_v=" << q_v << ", p_e=" << p_e
     // << ", q_u=" << q_u << ", result=" << result);
     return result > 0 ? static_cast<uint64_t>(result) : 0;
