@@ -446,7 +446,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 
 int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch){
 	// coding-based transport
-	if (m_is_use_coding_transport){
+	if (m_is_use_coding_transport && ch.udp.pg != 2){
 		if (ch.l3Prot == 0x11){ // UDP
 			ReceiveCodingUdp(p, ch);
 		}else if (ch.l3Prot == 0xFC){ // ACK
@@ -693,7 +693,7 @@ void RdmaHw::RedistributeQp(){
 
 Ptr<Packet> RdmaHw::GetNxtPacket(Ptr<RdmaQueuePair> qp){
 	// coding-based transport
-	if (m_is_use_coding_transport){
+	if (m_is_use_coding_transport && qp->m_pg != 2){
 		return GetNxtCodingPacket(qp);
 	}
 

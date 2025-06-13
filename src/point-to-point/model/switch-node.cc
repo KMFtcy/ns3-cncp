@@ -172,15 +172,15 @@ SwitchNode::SendToDev(Ptr<NetDevice> input_device, Ptr<Packet> p, CustomHeader& 
         uint32_t inDev = t.GetFlowId();
         if (qIndex != 0)
         {
-            // notify CNCP flow control before drop
-            if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD)
+            // notify CNCP flow control before drop, ignore ack/nack and background flow (pg=2)
+            if (m_ccMode == 11 && ch.l3Prot != 0xFC && ch.l3Prot != 0xFD && ch.udp.pg != 2)
             {
                 CNCPNotifyIngress(p, ch, idx, input_device);
             }
             // not highest priority
             if ((m_mmu->CheckIngressAdmission(inDev, qIndex, p->GetSize()) || !m_pfcEnabled) &&
                 m_mmu->CheckEgressAdmission(idx, qIndex, p->GetSize()) &&
-                (CNCPAdmitIngress(p, ch) || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD))
+                CNCPAdmitIngress(p, ch))
             { // Admission control
                 m_mmu->UpdateIngressAdmission(inDev, qIndex, p->GetSize());
                 m_mmu->UpdateEgressAdmission(idx, qIndex, p->GetSize());
@@ -452,8 +452,8 @@ SwitchNode::log2apprx(int x, int b, int m, int l)
 bool
 SwitchNode::CNCPAdmitIngress(Ptr<Packet> packet, CustomHeader& ch)
 {
-    // If CNCP is not enabled, always admit
-    if (m_ccMode != 11)
+    // If CNCP is not enabled, or it is ack or nack packet, or it is background flow (pg=2), always admit
+    if (m_ccMode != 11 || ch.l3Prot == 0xFC || ch.l3Prot == 0xFD || ch.udp.pg == 2)
     {
         return true;
     }
@@ -606,6 +606,7 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
     uint64_t dt = currentTs - lastPktTs;
     int32_t deltaQ = flowRate * dt / (8ULL * 1000000000ULL) - packet->GetSize();
     m_flowBytesOnNodeTable[key] += deltaQ;
+    // NS_LOG_DEBUG("Node " << GetId() << " CNCPNotifyIngress: key=(" << key.dport << "), update Qu as " << m_flowBytesOnNodeTable[key] << " with flow rate " << flowRate << " and dt " << dt);
     if (m_flowBytesOnNodeTable[key] < 0)
     {
         m_flowBytesOnNodeTable[key] = 0;
