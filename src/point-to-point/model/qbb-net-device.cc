@@ -120,7 +120,8 @@ RdmaEgressQueue::GetNextQindex(bool paused[])
     }
 
     // 2. Round-robin polling for all normal queues (QPs).
-    // Only select a QP that is not PAUSED, has data left, is not window-bounded, and is available now.
+    // Only select a QP that is not PAUSED, has data left, is not window-bounded, and is available
+    // now.
     int res = -1024; // Default: no packet to send
     uint32_t fcount = m_qpGrp->GetN();
     uint32_t min_finish_id = 0xffffffff; // For tracking the smallest finished QP index
@@ -374,7 +375,9 @@ QbbNetDevice::DequeueAndTransmit(void)
             Ptr<RdmaQueuePair> lastQp = m_rdmaEQ->GetQp(qIndex);
             m_traceQpDequeue(p, lastQp);
 
-            // After successfully sending a packet, notify the upper/related module that "this QP has just sent a packet" and update the next available sending time of the QP (next avail time)
+            // After successfully sending a packet, notify the upper/related module that "this QP
+            // has just sent a packet" and update the next available sending time of the QP (next
+            // avail time)
             m_rdmaPktSent(lastQp, p, m_tInterframeGap);
         }
         else
