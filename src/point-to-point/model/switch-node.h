@@ -35,6 +35,7 @@ class SwitchNode : public Node
     // Flow control table for CNCP, key is flow id and value is target flow rate
     // for iterative update
     uint64_t m_cncp_report_interval = 1000;       // 1000 ns
+    uint64_t m_cncp_update_interval = 1000;       // 1000 ns
     uint64_t m_cncp_flow_expired_interval = 4000; // 2000 ns
     std::unordered_map<FlowKey, uint32_t, FlowKeyHash> m_flowEgressDevIdxTable; // used for initializing flow rate
     std::unordered_map<FlowKey, Ptr<NetDevice>, FlowKeyHash>
@@ -93,10 +94,9 @@ class SwitchNode : public Node
         Ptr<NetDevice> device); // notify ingress and update flow control table. Packets are dropped
                                 // also are also recorded here, such that this function should be
                                 // called after CNCPAdmitIngress ACLs.
-    void StartReportCNCP();
-    void ReportCNCPStatus();
+    void ReportCNCPStatus(FlowKey key);
     void CNCPUpdateFromReport(FlowKey key, uint64_t flowInfo);
-    void CNCPUpdate();
+    void CNCPUpdate(FlowKey key);
     uint64_t CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint64_t q_u);
     void CNCPCheckFlowExpired(FlowKey key);
 };

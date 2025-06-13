@@ -705,30 +705,29 @@ QbbNetDevice::UpdateNextAvail(Time t)
 }
 
 void
-QbbNetDevice::SendCNCPReport(
-    std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable)
+QbbNetDevice::SendCNCPReport(FlowKey key, uint64_t flowInfo)
 {
-    FlowKeyHash hasher;
-
-    for (const auto& flow : m_flowBytesOnNodeTable)
-    {
-        Ptr<Packet> p = Create<Packet>(0);
-        CncpControlHeader cncp_ch(flow.first.sip, flow.first.dip, flow.first.sport, flow.first.dport, flow.first.protocol, flow.first.priority_group, flow.second);
-        p->AddHeader(cncp_ch);
-        Ipv4Header ipv4h; // Prepare IPv4 header
-        ipv4h.SetProtocol(0xFB);
-        ipv4h.SetSource(GetNode()->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
-        ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
-        ipv4h.SetPayloadSize(p->GetSize());
-        ipv4h.SetTtl(1);
-        // ipv4h.SetIdentification(UniformVariable(0, 65536).GetValue());
-        ipv4h.SetIdentification(m_uv->GetInteger(0, 65535));
-        p->AddHeader(ipv4h);
-        AddHeader(p, 0x800);
-        CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header |
-                        CustomHeader::L4_Header);
-        p->PeekHeader(ch);
-        SwitchSend(0, p, ch);
-    }
+    Ptr<Packet> p = Create<Packet>(0);
+    CncpControlHeader cncp_ch(key.sip,
+                              key.dip,
+                              key.sport,
+                              key.dport,
+                              key.protocol,
+                              key.priority_group,
+                              flowInfo);
+    p->AddHeader(cncp_ch);
+    Ipv4Header ipv4h; // Prepare IPv4 header
+    ipv4h.SetProtocol(0xFB);
+    ipv4h.SetSource(GetNode()->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+    ipv4h.SetDestination(Ipv4Address("255.255.255.255"));
+    ipv4h.SetPayloadSize(p->GetSize());
+    ipv4h.SetTtl(1);
+    // ipv4h.SetIdentification(UniformVariable(0, 65536).GetValue());
+    ipv4h.SetIdentification(m_uv->GetInteger(0, 65535));
+    p->AddHeader(ipv4h);
+    AddHeader(p, 0x800);
+    CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+    p->PeekHeader(ch);
+    SwitchSend(0, p, ch);
 }
 } // namespace ns3

@@ -1363,10 +1363,6 @@ main(int argc, char* argv[])
             Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
             sw->SetAttribute("CcMode", UintegerValue(cc_mode));
             sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
-            if (cc_mode == 11)
-            {
-                sw->StartReportCNCP();
-            }
         }
     }
 

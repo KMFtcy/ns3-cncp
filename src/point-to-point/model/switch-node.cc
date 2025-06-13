@@ -596,6 +596,16 @@ SwitchNode::CNCPNotifyIngress(Ptr<Packet> packet,
                             &SwitchNode::CNCPCheckFlowExpired,
                             this,
                             key);
+        // Schedule a update event, if the flow is not updated for a while, update the flow rate
+        Simulator::Schedule(NanoSeconds(m_cncp_update_interval),
+                            &SwitchNode::CNCPUpdate,
+                            this,
+                            key);
+        // Schedule a report event, if the flow is not reported for a while, report the flow rate
+        Simulator::Schedule(NanoSeconds(m_cncp_report_interval),
+                            &SwitchNode::ReportCNCPStatus,
+                            this,
+                            key);
     }
 
     // m_flowBytesOnNodeTable[key] += packet->GetSize();
@@ -656,65 +666,50 @@ SwitchNode::CNCPCheckFlowExpired(FlowKey key)
 }
 
 void
-SwitchNode::ReportCNCPStatus()
+SwitchNode::ReportCNCPStatus(FlowKey key)
 {
-    // Create a map to store flows grouped by device
-    std::unordered_map<Ptr<NetDevice>, std::unordered_map<FlowKey, uint64_t, FlowKeyHash>>
-        deviceFlows;
-
-    // Iterate through all flows in m_flowPrevHopDevTable
-    for (const auto& flow : m_flowPrevHopDevTable)
+    // find the flow in the control rate table, if not found, do not schedule a report event
+    auto flow = m_flowControlRateTable.find(key);
+    if (flow == m_flowControlRateTable.end())
     {
-        FlowKey key = flow.first;
-        Ptr<NetDevice> device = flow.second;
-
+        return;
+    }else{
         // Get the bytes for this flow from m_flowBytesOnNodeTable
         auto bytesIt = m_flowBytesOnNodeTable.find(key);
-        if (bytesIt != m_flowBytesOnNodeTable.end())
+        if (bytesIt == m_flowBytesOnNodeTable.end())
         {
-            // Add this flow and its bytes to the corresponding device's map
-            deviceFlows[device][key] = bytesIt->second;
+            return;
         }
-    }
-
-    // Iterate through each device and call SendCNCPReport
-    for (const auto& deviceFlow : deviceFlows)
-    {
-        Ptr<NetDevice> device = deviceFlow.first;
-        const auto& flows = deviceFlow.second;
-
-        // Cast to QbbNetDevice to call SendCNCPReport
-        Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
-        if (qbbDevice)
+        Ptr<NetDevice> device = m_flowPrevHopDevTable[key];
+        if (device)
         {
-            qbbDevice->SendCNCPReport(flows);
+            Ptr<QbbNetDevice> qbbDevice = DynamicCast<QbbNetDevice>(device);
+            if (qbbDevice)
+            {
+                qbbDevice->SendCNCPReport(key, bytesIt->second);
+            }
         }
+
+        // Schedule a report event, if the flow is not reported for a while, report the flow rate
+        Simulator::Schedule(NanoSeconds(m_cncp_report_interval),
+                            &SwitchNode::ReportCNCPStatus,
+                            this,
+                            key);
     }
 }
 
 void
-SwitchNode::StartReportCNCP()
+SwitchNode::CNCPUpdate(FlowKey key)
 {
-    // NS_LOG_DEBUG("StartReportCNCP");
-    // Check if there are any flows in the control rate table
-    if (!m_flowControlRateTable.empty())
+    // find the flow in the control rate table
+    auto flow = m_flowControlRateTable.find(key);
+    if (flow == m_flowControlRateTable.end())
     {
-        ReportCNCPStatus();
-        CNCPUpdate();
-    }
-
-    // Schedule the next report
-    Simulator::Schedule(NanoSeconds(m_cncp_report_interval), &SwitchNode::StartReportCNCP, this);
-}
-
-void
-SwitchNode::CNCPUpdate()
-{
-    // Iterate through all flows in the control rate table
-    for (auto& flow : m_flowControlRateTable)
-    {
-        FlowKey key = flow.first;
-        uint64_t f_e = flow.second;
+        return;
+    }else{
+    
+        FlowKey key = flow->first;
+        uint64_t f_e = flow->second;
 
         // Get q_v from flowQvTable
         int64_t q_v = m_flowQvTable[key];
@@ -775,7 +770,13 @@ SwitchNode::CNCPUpdate()
         uint64_t f_e_new = CNCPGetNextIteration(f_e, q_v, p_e, q_u);
 
         // Update the flow rate in the table
-        flow.second = f_e_new;
+        flow->second = f_e_new;
+
+        // Schedule a update event, if the flow is not updated for a while, update the flow rate
+        Simulator::Schedule(NanoSeconds(m_cncp_update_interval),
+                            &SwitchNode::CNCPUpdate,
+                            this,
+                            key);
 
         // Print flow rate before and after update
         // NS_LOG_DEBUG("Node " << GetId() << " CNCPUpdate: key=(" << key.sip << ", " << key.dip <<

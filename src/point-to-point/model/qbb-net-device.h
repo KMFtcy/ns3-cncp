@@ -132,7 +132,7 @@ class QbbNetDevice : public PointToPointNetDevice
 
     void SendPfc(uint32_t qIndex, uint32_t type); // type: 0 = pause, 1 = resume
 
-    void SendCNCPReport(std::unordered_map<FlowKey, uint64_t, FlowKeyHash> m_flowBytesOnNodeTable);
+    void SendCNCPReport(FlowKey key, uint64_t flowInfo);
 
     TracedCallback<Ptr<const Packet>, uint32_t> m_traceEnqueue;
     TracedCallback<Ptr<const Packet>, uint32_t> m_traceDequeue;
