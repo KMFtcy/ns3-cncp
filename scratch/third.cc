@@ -1352,7 +1352,8 @@ main(int argc, char* argv[])
             }
             uint64_t delay = pairDelay[n.Get(i)][n.Get(j)];
             uint64_t txDelay = pairTxDelay[n.Get(i)][n.Get(j)];
-            uint64_t rtt = delay * 2 + txDelay;
+            // uint64_t rtt = delay * 2 + txDelay;
+            uint64_t rtt = delay * 2;
             uint64_t bw = pairBw[i][j];
             uint64_t bdp = rtt * bw / 1000000000 / 8;
             pairBdp[n.Get(i)][n.Get(j)] = bdp;
