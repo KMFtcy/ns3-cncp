@@ -779,11 +779,17 @@ SwitchNode::CNCPUpdate(FlowKey key)
                             key);
 
         // Print flow rate before and after update
-        // NS_LOG_DEBUG("Node " << GetId() << " CNCPUpdate: key=(" << key.sip << ", " << key.dip <<
-        // ", " << key.sport << ", "
-        //  << key.dport << ", " << key.protocol
-        //  << "), oldRate=" << f_e << ", newRate=" << f_e_new
-        //  << ", q_v=" << q_v << ", p_e=" << p_e << ", q_u=" << q_u);
+        // double trans_gamma = 8 * m_gamma / m_cncp_report_interval;
+        // NS_LOG_DEBUG(std::setw(4) << GetId() << " " 
+        //             << std::setw(6) << key.dport << " "
+        //             << std::setw(10) << std::left << "oldRate=" << std::setw(12) << f_e << ", "
+        //             << std::setw(10) << std::left << "newRate=" << std::setw(12) << f_e_new << ", "
+        //             << std::setw(6) << std::left << "q_v=" << std::setw(12) << q_v * trans_gamma << ", "
+        //             << std::setw(6) << std::left << "p_e=" << std::setw(12) << p_e * trans_gamma << ", "
+        //             << std::setw(6) << std::left << "q_u=" << std::setw(12) << q_u * trans_gamma << ", "
+        //             << std::setw(10) << std::left << "U_prime=" << std::setw(12) << m_lambda / (f_e > 0 ? f_e : 1) << " "
+        //             << Simulator::Now().GetTimeStep());
+        // NS_LOG_DEBUG(GetId() << " " << key.dport << " " << f_e << " " << f_e_new << " " << Simulator::Now().GetTimeStep());
     }
 }
 

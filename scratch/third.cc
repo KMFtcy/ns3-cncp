@@ -149,10 +149,10 @@ ReadFlowInput()
         auto srcNode = n.Get(flow_input.src);
         auto dstNode = n.Get(flow_input.dst);
 
-        std::cout << "[Debug] Flow #" << flow_input.idx << " src=" << flow_input.src
+        NS_LOG_DEBUG("[Debug] Flow #" << flow_input.idx << " src=" << flow_input.src
                   << " (type=" << srcNode->GetNodeType() << ")"
                   << ", dst=" << flow_input.dst << " (type=" << dstNode->GetNodeType() << ")"
-                  << std::endl;
+                  << std::endl);
         NS_ASSERT(n.Get(flow_input.src)->GetNodeType() == 0 &&
                   n.Get(flow_input.dst)->GetNodeType() == 0);
     }
@@ -1229,6 +1229,8 @@ main(int argc, char* argv[])
             MakeBoundCallback(&get_pfc, pfc_file, DynamicCast<QbbNetDevice>(d.Get(1))));
     }
 
+    NS_LOG_INFO("Create topology.");
+
     nic_rate = get_nic_rate(n);
 
     // config switch
@@ -1269,6 +1271,7 @@ main(int argc, char* argv[])
             sw->m_mmu->node_id = sw->GetId();
         }
     }
+    NS_LOG_INFO("Config switch.");
 
 #if ENABLE_QP
     FILE* fct_output = fopen(fct_output_file.c_str(), "w");
