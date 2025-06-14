@@ -45,6 +45,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+uint32_t nic_dequeue_mode = 0;
 bool enable_qcn = true, enable_pfc = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -664,6 +665,20 @@ main(int argc, char* argv[])
                     std::cout << "ENABLE_PFC\t\t\t" << "No" << "\n";
                 }
             }
+            else if (key.compare("NIC_DEQUEUE_MODE") == 0)
+            {
+                uint32_t v;
+                conf >> v;
+                nic_dequeue_mode = v;
+                if (nic_dequeue_mode == 0)
+                {
+                    std::cout << "NIC_DEQUEUE_MODE\t\t" << "Round Robin" << "\n";
+                }
+                else
+                {
+                    std::cout << "NIC_DEQUEUE_MODE\t\t" << "Priority First" << "\n";
+                }
+            }
             else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0)
             {
                 uint32_t v;
@@ -1040,6 +1055,7 @@ main(int argc, char* argv[])
     Config::SetDefault("ns3::QbbNetDevice::PauseTime", UintegerValue(pause_time));
     Config::SetDefault("ns3::QbbNetDevice::QcnEnabled", BooleanValue(enable_qcn));
     Config::SetDefault("ns3::QbbNetDevice::DynamicThreshold", BooleanValue(dynamicth));
+    Config::SetDefault("ns3::QbbNetDevice::NicDequeueMode", UintegerValue(nic_dequeue_mode));
 
     // set int_multi
     IntHop::multi = int_multi;

@@ -199,6 +199,9 @@ class QbbNetDevice : public PointToPointNetDevice
 
     // qcn
 
+    // whether dequeue using priority first scheduling or round robin scheduling
+    uint32_t m_nicDequeueMode;
+
     struct ECNAccount
     {
         Ipv4Address source;

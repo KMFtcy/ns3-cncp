@@ -54,8 +54,11 @@ public:
   /** Enqueue packet into a specific queue */
   bool Enqueue (Ptr<Packet> p, uint32_t qIndex);
 
-  /** Dequeue one packet using priority + RR scheduling */
+  /** Dequeue one packet using RR scheduling */
   Ptr<Packet> DequeueRR (bool paused[]);
+
+  /** Dequeue one packet using priority first scheduling */
+  Ptr<Packet> DequeuePF (bool paused[]);
 
   /** Get bytes in a specific queue */
   uint32_t GetNBytes (uint32_t qIndex) const;
@@ -78,6 +81,9 @@ private:
 
   /** Internal Round-Robin dequeue */
   Ptr<Packet> DoDequeueRR (bool paused[]);
+
+  /** Internal priority first dequeue */
+  Ptr<Packet> DoDequeuePF (bool paused[]);
 
   /** Compatibility: enqueue without priority (fallback to queue 0) */
   bool Enqueue (Ptr<Packet> p) override;

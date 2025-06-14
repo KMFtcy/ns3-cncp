@@ -1,5 +1,6 @@
 ENABLE_QCN 1 {0: disable, 1: enable}
 ENABLE_PFC 1 {0: disable, 1: enable}
+NIC_DEQUEUE_MODE 0 {0: round robin, 1: priority first}
 USE_DYNAMIC_PFC_THRESHOLD 1 {0: disable, 1: enable}
 
 PACKET_PAYLOAD_SIZE 1000 {packet size (bytes)}

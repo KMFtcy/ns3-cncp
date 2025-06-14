@@ -117,6 +117,22 @@ BEgressQueue::DequeueRR(bool paused[])
     return packet;
 }
 
+Ptr<Packet>
+BEgressQueue::DequeuePF(bool paused[])
+{
+    NS_LOG_FUNCTION(this);
+    Ptr<Packet> packet = DoDequeuePF(paused);
+    if (packet != nullptr)
+    {
+        NS_ASSERT(m_nBytes >= packet->GetSize());
+        NS_ASSERT(m_nPackets > 0);
+        m_nBytes -= packet->GetSize();
+        m_nPackets--;
+        // m_traceDequeue(packet);
+    }
+    return packet;
+}
+
 // -------------------------------------------------------------------------
 // Internal helpers
 // -------------------------------------------------------------------------
@@ -181,6 +197,54 @@ BEgressQueue::DoDequeueRR(bool paused[])
         {
             m_rrlast = qIndex;
         }
+
+        m_qlast = qIndex;
+        NS_LOG_LOGIC("Dequeued from queue " << qIndex);
+        return p;
+    }
+
+    NS_LOG_LOGIC("Nothing can be sent");
+    return nullptr;
+}
+
+Ptr<Packet>
+BEgressQueue::DoDequeuePF(bool paused[])
+{
+    NS_LOG_FUNCTION(this);
+
+    if (m_bytesInQueueTotal == 0)
+    {
+        NS_LOG_LOGIC("Queue empty");
+        return nullptr;
+    }
+
+    bool found = false;
+    uint32_t qIndex = 0;
+
+    if (m_queues[0]->GetNPackets() > 0)
+    {
+        found = true;
+        qIndex = 0;
+    }
+    else
+    {
+        for (uint32_t i = 1; i <= qCnt; i++)
+        {
+            if (!paused[i] && m_queues[i]->GetNPackets() > 0)
+            {
+                found = true;
+                qIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (found)
+    {
+        Ptr<Packet> p = m_queues[qIndex]->Dequeue();
+        m_traceBeqDequeue(p, qIndex);
+        m_bytesInQueueTotal -= p->GetSize();
+        m_bytesInQueue[qIndex] -= p->GetSize();
 
         m_qlast = qIndex;
         NS_LOG_LOGIC("Dequeued from queue " << qIndex);

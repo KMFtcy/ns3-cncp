@@ -289,7 +289,12 @@ QbbNetDevice::GetTypeId(void)
             .AddTraceSource("QbbPfc",
                             "get a PFC packet. 0: resume, 1: pause",
                             MakeTraceSourceAccessor(&QbbNetDevice::m_tracePfc),
-                            "ns3::Queue::QbbPfcTracedCallback");
+                            "ns3::Queue::QbbPfcTracedCallback")
+            .AddAttribute("NicDequeueMode",
+                          "Dequeue mode of NIC: 0: round robin, 1: priority first",
+                          UintegerValue(0),
+                          MakeUintegerAccessor(&QbbNetDevice::m_nicDequeueMode),
+                          MakeUintegerChecker<uint32_t>());
 
     return tid;
 }
@@ -408,7 +413,14 @@ QbbNetDevice::DequeueAndTransmit(void)
      */
     else
     {                                     // switch, doesn't care about qcn, just send
-        p = m_queue->DequeueRR(m_paused); // this is round-robin
+        if (m_nicDequeueMode == 0)
+        {
+            p = m_queue->DequeueRR(m_paused); // this is round-robin
+        }
+        else
+        {
+            p = m_queue->DequeuePF(m_paused); // this is priority first
+        }
         if (p != nullptr)
         {
             m_snifferTrace(p);
@@ -684,7 +696,15 @@ QbbNetDevice::TakeDown()
         }
         while (1)
         {
-            Ptr<Packet> p = m_queue->DequeueRR(m_paused);
+            Ptr<Packet> p;
+            if (m_nicDequeueMode == 0)
+            {
+                p = m_queue->DequeueRR(m_paused);
+            }
+            else
+            {
+                Ptr<Packet> p = m_queue->DequeuePF(m_paused);
+            }
             if (p == nullptr)
             {
                 break;
