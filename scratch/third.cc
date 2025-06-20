@@ -163,6 +163,10 @@ ScheduleFlowInputs()
 {
     while (flow_input.idx < flow_num && Seconds(flow_input.start_time) == Simulator::Now())
     {
+        size_t winSize = (global_t == 1 ? maxBdp : pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)]);
+        // has_win is effective in all cases except when use_coding_transport is true and pg != 2.
+        // In other words, when use_coding_transport is true, only pg==2 flows can use has_win.
+        bool isSetWin = has_win && (!use_coding_transport || flow_input.pg == 2);
         uint32_t port = portNumder[flow_input.src][flow_input.dst]++; // get a new port number
         RdmaClientHelper clientHelper(
             flow_input.pg,
@@ -171,9 +175,7 @@ ScheduleFlowInputs()
             port,
             flow_input.dport,
             flow_input.maxPacketCount,
-            has_win
-                ? (global_t == 1 ? maxBdp : pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)])
-                : 0,
+            isSetWin ? winSize : 0,
             global_t == 1 ? maxRtt : pairRtt[flow_input.src][flow_input.dst]);
         ApplicationContainer appCon = clientHelper.Install(n.Get(flow_input.src));
         appCon.Start(Time(0));
