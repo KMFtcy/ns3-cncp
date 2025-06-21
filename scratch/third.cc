@@ -45,6 +45,8 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+uint64_t cncp_gamma = 1500;
+uint64_t cncp_lambda = 100000000000;
 uint32_t nic_dequeue_mode = 0;
 bool enable_qcn = true, enable_pfc = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
@@ -1041,6 +1043,18 @@ main(int argc, char* argv[])
                 conf >> use_coding_transport;
                 std::cout << "USE_CODING_TRANSPORT\t\t\t\t" << use_coding_transport << '\n';
             }
+            else if (key.compare("CNCP_GAMMA") == 0)
+            {
+                conf >> cncp_gamma;
+                std::cout << "CNCP_GAMMA\t\t\t\t" << cncp_gamma << '\n';
+            }
+            else if (key.compare("CNCP_LAMBDA") == 0)
+            {
+                conf >> cncp_lambda;
+                std::cout << "CNCP_LAMBDA\t\t\t\t" << cncp_lambda << '\n';
+            }
+            
+            
             fflush(stdout);
         }
         conf.close();
@@ -1385,6 +1399,8 @@ main(int argc, char* argv[])
             Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
             sw->SetAttribute("CcMode", UintegerValue(cc_mode));
             sw->SetAttribute("MaxRtt", UintegerValue(maxRtt));
+            sw->SetAttribute("CNCPGamma", UintegerValue(cncp_gamma));
+            sw->SetAttribute("CNCPLambda", UintegerValue(cncp_lambda));
         }
     }
 

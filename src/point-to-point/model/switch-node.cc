@@ -50,7 +50,17 @@ SwitchNode::GetTypeId(void)
                                           "Max Rtt of the network",
                                           UintegerValue(9000),
                                           MakeUintegerAccessor(&SwitchNode::m_maxRtt),
-                                          MakeUintegerChecker<uint32_t>());
+                                          MakeUintegerChecker<uint32_t>())
+                            .AddAttribute("CNCPGamma",
+                                          "CNCP Iterative Update Parameter Gamma",
+                                          UintegerValue(1500),
+                                          MakeUintegerAccessor(&SwitchNode::m_gamma),
+                                          MakeUintegerChecker<uint64_t>())
+                            .AddAttribute("CNCPLambda",
+                                          "CNCP Iterative Update Parameter Lambda",
+                                          UintegerValue(100000000000),
+                                          MakeUintegerAccessor(&SwitchNode::m_lambda),
+                                          MakeUintegerChecker<uint64_t>());
     return tid;
 }
 
