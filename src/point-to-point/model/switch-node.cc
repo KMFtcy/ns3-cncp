@@ -779,6 +779,16 @@ SwitchNode::CNCPUpdate(FlowKey key)
         // Get the flow rate for the next iteration
         uint64_t f_e_new = CNCPGetNextIteration(f_e, q_v, p_e, q_u);
 
+        // check if the flow rate is larger than egress device's rate
+        int dev_idx = m_flowEgressDevIdxTable[key];
+        Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[dev_idx]);
+        uint64_t egress_rate = device->GetDataRate().GetBitRate();
+        // print egress rate
+        if (f_e_new > egress_rate)
+        {
+            f_e_new = egress_rate;
+        }
+
         // Update the flow rate in the table
         flow->second = f_e_new;
 
