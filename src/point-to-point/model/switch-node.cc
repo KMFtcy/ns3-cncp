@@ -15,6 +15,7 @@
 #include "ns3/uinteger.h"
 
 #include <cmath>
+#include <iomanip>
 
 namespace ns3
 {
@@ -821,7 +822,7 @@ SwitchNode::CNCPGetNextIteration(uint64_t f_e, uint64_t q_v, uint64_t p_e, uint6
     double U_prime = m_lambda / (f_e > 0 ? f_e : 1); // avoid division by zero
 
     double trans_gamma = 8 * m_gamma / m_cncp_report_interval;
-    double result = f_e + m_gamma * (q_v * trans_gamma + U_prime - p_e * trans_gamma - q_u * trans_gamma);
+    double result = f_e + m_gamma * (q_v * trans_gamma + U_prime - 1.1 * p_e * trans_gamma - q_u * trans_gamma);
     // NS_LOG_DEBUG("U_prime=" << U_prime << ", f_e=" << f_e << ", q_v=" << q_v << ", p_e=" << p_e
     // << ", q_u=" << q_u << ", result=" << result);
     return result > 0 ? static_cast<uint64_t>(result) : 0;

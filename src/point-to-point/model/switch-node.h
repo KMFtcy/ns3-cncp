@@ -45,8 +45,8 @@ class SwitchNode : public Node
     std::unordered_map<FlowKey, int64_t, FlowKeyHash> m_flowBytesOnNodeTable;
     const uint64_t m_default_flow_capacity_on_node =
         10000; // default flow capacity on node, also called user queue capacity in the CNCP paper.
-    uint64_t m_gamma = 1500;
-    uint64_t m_lambda = 100000000000;
+    uint64_t m_gamma = 3000;
+    uint64_t m_lambda = 5e15;
     // for flow rate control
     std::unordered_map<FlowKey, uint64_t, FlowKeyHash>
         m_flowControlRateTable; // flow rate, in bits per second
